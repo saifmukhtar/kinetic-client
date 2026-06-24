@@ -1,0 +1,11 @@
+[package]
+name = "kinetic-ffi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+[dependencies]
+kinetic-core = { path = "../../kinetic/kinetic-core" }
+kinetic-network = { path = "../../kinetic/kinetic-network" }
+tokio = { version = "1.38.0", features = ["full"] }
+anyhow = "1.0.86"
