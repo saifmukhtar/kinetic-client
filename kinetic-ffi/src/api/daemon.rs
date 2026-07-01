@@ -18,10 +18,26 @@ use crate::api::bootstrap;
 /// Initialized once via `init_light_client()` and reused for all DHT queries.
 pub static NETWORK_CLIENT: OnceCell<Arc<NetworkClient>> = OnceCell::const_new();
 
-/// Maps PeerId string → local port of its dedicated Transport Bridge.
-/// Each .kin site gets its own local HTTP bridge port so the WebView
-/// can load it via `http://127.0.0.1:<port>`.
-pub static TRANSPORT_BRIDGES: OnceCell<Arc<Mutex<HashMap<String, u16>>>> = OnceCell::const_new();
+use flutter_rust_bridge::frb;
+
+#[frb(ignore)]
+pub(crate) struct BridgeInfo {
+    pub port: u16,
+    pub last_accessed: std::time::Instant,
+    pub shutdown_tx: tokio::sync::oneshot::Sender<()>,
+}
+
+#[frb(ignore)]
+pub(crate) static TRANSPORT_BRIDGES: OnceCell<Arc<Mutex<HashMap<String, BridgeInfo>>>> = OnceCell::const_new();
+
+/// A randomly generated token that must be provided by the WebView 
+/// (via query param or cookie) to access the localhost transport bridge.
+pub static BRIDGE_TOKEN: OnceCell<String> = OnceCell::const_new();
+
+/// Returns the current bridge authentication token.
+pub fn get_bridge_token() -> String {
+    BRIDGE_TOKEN.get().cloned().unwrap_or_default()
+}
 
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
@@ -30,10 +46,10 @@ pub async fn init_light_client() -> Result<()> {
         return Ok(());
     }
 
-    // Use a temporary directory for light client storage.
-    // Light clients don't persist data across app launches.
-    let mut base_tmp = std::env::temp_dir();
+    let mut base_tmp = std::path::PathBuf::new();
     let paths = [
+        "/data/user/0/dev.saifmukhtar.kinetic/app_flutter",
+        "/data/data/dev.saifmukhtar.kinetic/app_flutter",
         "/data/user/0/dev.saifmukhtar.kinetic/cache",
         "/data/data/dev.saifmukhtar.kinetic/cache"
     ];
@@ -45,32 +61,24 @@ pub async fn init_light_client() -> Result<()> {
         }
     }
 
-    let temp_dir = base_tmp.join(format!(
-        "kinetic_light_{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("System clock error")
-            .as_secs()
-    ));
-    std::fs::create_dir_all(&temp_dir)?;
-    let storage = Arc::new(SledStorage::new(&temp_dir)?);
+    let storage_dir = base_tmp.join("kinetic_light_storage");
+    std::fs::create_dir_all(&storage_dir)?;
+    let storage = Arc::new(SledStorage::new(&storage_dir)?);
 
-    // Fetch current drand pulse to mine a valid PoW for the bootstrap nodes
-    #[derive(serde::Deserialize)]
-    struct DrandResponse {
-        round: u64,
-    }
-    let current_round = reqwest::get("https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest")
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch drand: {}", e))?
-        .json::<DrandResponse>()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse drand: {}", e))?
-        .round;
+    let current_round = fetch_latest_drand().await;
 
-    // Light clients now MUST mine a Sybil-resistant identity because the AWS
-    // bootstrap nodes rigorously enforce PoW on all connections.
-    let local_key = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
+    let identity_path = base_tmp.join("kinetic_identity.bin");
+    let local_key = if let Ok(bytes) = std::fs::read(&identity_path) {
+        libp2p::identity::Keypair::from_protobuf_encoding(&bytes).unwrap_or_else(|_| {
+            let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
+            let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+            k
+        })
+    } else {
+        let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
+        let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+        k
+    };
 
     let (bootstrap_nodes, seed_domains) = bootstrap::all_bootstrap_nodes();
 
@@ -79,6 +87,7 @@ pub async fn init_light_client() -> Result<()> {
         // Port 0 means the OS assigns an ephemeral port. Light clients don't
         // need a stable listen address — they only dial out.
         listen_addr: "/ip4/0.0.0.0/tcp/0".to_string(),
+        external_address: None,
         bootstrap_nodes,
         seed_domains,
         initial_drand_pulse: current_round,
@@ -86,8 +95,6 @@ pub async fn init_light_client() -> Result<()> {
     };
 
     let (drand_pulse_tx, drand_pulse_rx) = watch::channel(current_round);
-    // Leak the sender so the watch channel stays alive for the process lifetime.
-    Box::leak(Box::new(drand_pulse_tx));
 
     let (network_client, network_loop) = NetworkEventLoop::new(
         network_config,
@@ -102,9 +109,29 @@ pub async fn init_light_client() -> Result<()> {
         .set(client.clone())
         .map_err(|_| anyhow::anyhow!("Network client already initialized"))?;
     let _ = TRANSPORT_BRIDGES.set(Arc::new(Mutex::new(HashMap::new())));
+    let _ = BRIDGE_TOKEN.set(libp2p::identity::Keypair::generate_ed25519().public().to_peer_id().to_string());
 
+    // Run the network event loop
     tokio::spawn(async move {
         network_loop.run().await;
+    });
+
+    // Periodically fetch fresh Drand pulses and broadcast to the network loop.
+    // This replaces the previous Box::leak approach which caused the watch channel
+    // to never forward new rounds, leaving the network loop stuck on the startup pulse.
+    tokio::spawn(async move {
+        // Drand quicknet ticks every 3 seconds; we poll every 60s to stay reasonably
+        // fresh without hammering the Drand API on a mobile connection.
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await; // skip the immediate first tick (we already fetched)
+        loop {
+            interval.tick().await;
+            let new_round = fetch_latest_drand().await;
+            // Only send if the round has advanced — avoids spurious wakeups.
+            if new_round > *drand_pulse_tx.borrow() {
+                let _ = drand_pulse_tx.send(new_round);
+            }
+        }
     });
 
     Ok(())
@@ -118,16 +145,30 @@ pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId) -> Re
 
     let map_arc = TRANSPORT_BRIDGES
         .get()
-        .expect("TRANSPORT_BRIDGES not initialized — call init_light_client() first");
+        .ok_or_else(|| anyhow::anyhow!("TRANSPORT_BRIDGES not initialized — call init_light_client() first"))?;
     let mut map = map_arc.lock().await;
 
-    if let Some(&port) = map.get(&peer_str) {
-        return Ok(port);
+    // Check if bridge already exists
+    if let Some(info) = map.get_mut(&peer_str) {
+        info.last_accessed = std::time::Instant::now();
+        return Ok(info.port);
+    }
+
+    // LRU eviction if we exceed 10 active bridges
+    if map.len() >= 10 {
+        let oldest = map.iter()
+            .min_by_key(|(_, info)| info.last_accessed)
+            .map(|(k, _)| k.clone());
+        if let Some(old_peer) = oldest {
+            if let Some(info) = map.remove(&old_peer) {
+                let _ = info.shutdown_tx.send(());
+            }
+        }
     }
 
     let client = NETWORK_CLIENT
         .get()
-        .expect("NETWORK_CLIENT not initialized — call init_light_client() first")
+        .ok_or_else(|| anyhow::anyhow!("NETWORK_CLIENT not initialized — call init_light_client() first"))?
         .clone();
 
     let app = Router::new()
@@ -138,11 +179,28 @@ pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId) -> Re
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
 
-    map.insert(peer_str, port);
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
+    map.insert(peer_str.clone(), BridgeInfo {
+        port,
+        last_accessed: std::time::Instant::now(),
+        shutdown_tx,
+    });
 
-    tokio::spawn(async move {
-        if let Err(e) = axum::serve(listener, app).await {
+    let server_handle = tokio::spawn(async move {
+        let server = axum::serve(listener, app).with_graceful_shutdown(async {
+            shutdown_rx.await.ok();
+        });
+        if let Err(e) = server.await {
             eprintln!("[kinetic-ffi] Transport bridge for peer {} failed: {}", peer_id, e);
+        }
+    });
+
+    let peer_str_clone = peer_str.clone();
+    tokio::spawn(async move {
+        let _ = server_handle.await; // Wait for server task to finish or panic
+        if let Some(map_arc) = TRANSPORT_BRIDGES.get() {
+            let mut map = map_arc.lock().await;
+            map.remove(&peer_str_clone);
         }
     });
 
@@ -172,6 +230,26 @@ async fn handle_bridge_request(
         .map(|p| p.as_str().to_string())
         .unwrap_or_else(|| "/".to_string());
 
+    let token = BRIDGE_TOKEN.get().cloned().unwrap_or_default();
+    let mut is_authorized = false;
+    
+    if let Some(cookie) = req.headers().get(axum::http::header::COOKIE) {
+        if cookie.to_str().unwrap_or("").contains(&format!("bridge_token={}", token)) {
+            is_authorized = true;
+        }
+    }
+    
+    if !is_authorized && path.contains(&format!("bridge_token={}", token)) {
+        is_authorized = true;
+    }
+
+    if !is_authorized {
+        return Ok(Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(axum::body::Body::from("Unauthorized Kinetic Bridge Access"))
+            .unwrap());
+    }
+
     let mut headers = HashMap::new();
     for (name, value) in req.headers() {
         if let Ok(val_str) = value.to_str() {
@@ -200,9 +278,73 @@ async fn handle_bridge_request(
     for (k, v) in proxy_resp.headers {
         builder = builder.header(k, v);
     }
+    
+    builder = builder.header(
+        axum::http::header::SET_COOKIE,
+        format!("bridge_token={}; Path=/; HttpOnly; SameSite=Strict", token)
+    );
+    
+    // Mitigate Sandbox Escape (Edge Case 81): Prevent malicious .kin sites
+    // from port-scanning localhost or the LAN.
+    builder = builder.header(
+        "Content-Security-Policy",
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; connect-src 'self' wss:; frame-src 'none'; object-src 'none';"
+    );
 
     let body = axum::body::Body::from(proxy_resp.body);
     Ok(builder
         .body(body)
         .unwrap_or_else(|_| Response::new(axum::body::Body::empty())))
+}
+
+/// Expose manual reconnect for Flutter AppLifecycleState.resumed
+pub async fn reconnect_network() -> Result<()> {
+    if let Some(client) = NETWORK_CLIENT.get() {
+        tracing::info!("Flutter requested network reconnect/bootstrap");
+        let _ = client.rebootstrap_network().await;
+    }
+    Ok(())
+}
+
+/// Shuts down all active transport bridges. Useful during hot-restarts
+/// or memory cleanups to avoid port collisions (Case 160).
+pub async fn shutdown_bridges() {
+    if let Some(map_arc) = TRANSPORT_BRIDGES.get() {
+        let mut map = map_arc.lock().await;
+        // Drain the map and send shutdown signal to all axum servers
+        for (_, info) in map.drain() {
+            let _ = info.shutdown_tx.send(());
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct DrandResponse {
+    round: u64,
+}
+
+pub async fn fetch_latest_drand() -> u64 {
+    let drand_urls = [
+        "https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest",
+        "https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest",
+        "https://api2.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest",
+        "https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest"
+    ];
+    
+    for url in drand_urls.iter() {
+        if let Ok(resp) = reqwest::get(*url).await {
+            if let Ok(json) = resp.json::<DrandResponse>().await {
+                return json.round;
+            }
+        }
+    }
+    
+    // Offline fallback mathematically estimated from quicknet genesis
+    let genesis_time = 1692803367u64;
+    let round_period = 3u64;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    if now > genesis_time {
+        return (now - genesis_time) / round_period;
+    }
+    0
 }

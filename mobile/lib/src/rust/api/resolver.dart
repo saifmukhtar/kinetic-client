@@ -7,8 +7,7 @@ import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 
-            // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Reveal`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
+            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
 
             /// Resolves a `kin://` URL to a local transport bridge URL that the WebView can load.
@@ -23,7 +22,8 @@ Future<ResolvedKinDocument>  resolveKinUrl({required String kinUrl }) => RustLib
 /// Looks up the identity details of a `kin://` URL without requiring a `PeerId` routing record.
 Future<ResolvedKinDocument>  lookupIdentity({required String kinUrl }) => RustLib.instance.api.crateApiResolverLookupIdentity(kinUrl: kinUrl);
 
-            /// The result of resolving a `kin://` URL.
+            /// (Removed local Reveal struct to use kinetic_core::types::Reveal directly)
+/// The result of resolving a `kin://` URL.
 class ResolvedKinDocument  {
                 /// A human-readable JSON summary of the trust state shown in the Trust Sheet.
 final String rawJson;

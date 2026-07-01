@@ -9,6 +9,7 @@
 
 import 'api/bootstrap.dart';
 import 'api/daemon.dart';
+import 'api/delegation.dart';
 import 'api/identity.dart';
 import 'api/resolver.dart';
 import 'api/simple.dart';
@@ -40,17 +41,27 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 @protected List<String> dco_decode_list_String(dynamic raw);
 
+@protected List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+
 @protected Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
 @protected String? dco_decode_opt_String(dynamic raw);
 
 @protected (List<String>,List<String>) dco_decode_record_list_string_list_string(dynamic raw);
 
+@protected (VdfJobResponse,String) dco_decode_record_vdf_job_response_string(dynamic raw);
+
 @protected ResolvedKinDocument dco_decode_resolved_kin_document(dynamic raw);
+
+@protected int dco_decode_u_32(dynamic raw);
+
+@protected BigInt dco_decode_u_64(dynamic raw);
 
 @protected int dco_decode_u_8(dynamic raw);
 
 @protected void dco_decode_unit(dynamic raw);
+
+@protected VdfJobResponse dco_decode_vdf_job_response(dynamic raw);
 
 @protected AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
@@ -62,17 +73,27 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 @protected List<String> sse_decode_list_String(SseDeserializer deserializer);
 
+@protected List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+
 @protected Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
 @protected String? sse_decode_opt_String(SseDeserializer deserializer);
 
 @protected (List<String>,List<String>) sse_decode_record_list_string_list_string(SseDeserializer deserializer);
 
+@protected (VdfJobResponse,String) sse_decode_record_vdf_job_response_string(SseDeserializer deserializer);
+
 @protected ResolvedKinDocument sse_decode_resolved_kin_document(SseDeserializer deserializer);
+
+@protected int sse_decode_u_32(SseDeserializer deserializer);
+
+@protected BigInt sse_decode_u_64(SseDeserializer deserializer);
 
 @protected int sse_decode_u_8(SseDeserializer deserializer);
 
 @protected void sse_decode_unit(SseDeserializer deserializer);
+
+@protected VdfJobResponse sse_decode_vdf_job_response(SseDeserializer deserializer);
 
 @protected int sse_decode_i_32(SseDeserializer deserializer);
 
@@ -86,17 +107,27 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 @protected void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
+@protected void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
+
 @protected void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer);
 
 @protected void sse_encode_opt_String(String? self, SseSerializer serializer);
 
 @protected void sse_encode_record_list_string_list_string((List<String>,List<String>) self, SseSerializer serializer);
 
+@protected void sse_encode_record_vdf_job_response_string((VdfJobResponse,String) self, SseSerializer serializer);
+
 @protected void sse_encode_resolved_kin_document(ResolvedKinDocument self, SseSerializer serializer);
+
+@protected void sse_encode_u_32(int self, SseSerializer serializer);
+
+@protected void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
 @protected void sse_encode_u_8(int self, SseSerializer serializer);
 
 @protected void sse_encode_unit(void self, SseSerializer serializer);
+
+@protected void sse_encode_vdf_job_response(VdfJobResponse self, SseSerializer serializer);
 
 @protected void sse_encode_i_32(int self, SseSerializer serializer);
                 }

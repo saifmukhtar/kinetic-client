@@ -45,17 +45,38 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
 
   Future<void> _initDeepLinks() async {
     _appLinks = AppLinks();
-    _linkSub = _appLinks.uriLinkStream.listen((uri) {
+    
+    void handleDeepLink(Uri uri) {
       if (uri.scheme == 'kin' || uri.host.endsWith('.kin')) {
-        _controller.text = uri.toString();
-        _resolve();
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Open Deep Link?'),
+            content: Text('Do you want to navigate to ${uri.toString()}?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _controller.text = uri.toString();
+                  _resolve();
+                },
+                child: const Text('Open'),
+              ),
+            ],
+          ),
+        );
       }
-    });
+    }
+
+    _linkSub = _appLinks.uriLinkStream.listen(handleDeepLink);
     try {
       final initial = await _appLinks.getInitialLink();
-      if (initial != null && (initial.scheme == 'kin' || initial.host.endsWith('.kin'))) {
-        _controller.text = initial.toString();
-        _resolve();
+      if (initial != null) {
+        handleDeepLink(initial);
       }
     } catch (_) {}
   }
@@ -70,41 +91,93 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
       _errorMessage = null;
     });
 
-    // Ensure daemon is started
-    if (ref.read(daemonProvider).status != DaemonStatus.running) {
-      await ref.read(daemonProvider.notifier).startDaemon();
+    var sanitizedInput = input.toLowerCase();
+    bool isKinetic = false;
+
+    if (sanitizedInput.startsWith('http://') || sanitizedInput.startsWith('https://')) {
+      final uri = Uri.tryParse(sanitizedInput);
+      if (uri != null && uri.host.endsWith('.kin')) {
+        sanitizedInput = 'kin://${uri.host}${uri.path}';
+        isKinetic = true;
+      } else {
+        isKinetic = false;
+      }
+    } else if (sanitizedInput.startsWith('kin://')) {
+      isKinetic = true;
+    } else {
+      if (sanitizedInput.endsWith('.kin') || sanitizedInput.contains('.kin/')) {
+        sanitizedInput = 'kin://$sanitizedInput';
+        isKinetic = true;
+      } else if (sanitizedInput.contains('.')) {
+        sanitizedInput = 'https://$sanitizedInput';
+        isKinetic = false;
+      } else {
+        sanitizedInput = 'kin://$sanitizedInput';
+        isKinetic = true;
+      }
     }
 
-    try {
-      final doc = await resolveKinUrl(kinUrl: input);
+    ResolvedSite? site;
 
-      if (doc.targetUrl == null) {
-        setState(() {
-          _loading = false;
-          _errorMessage = 'This name has no hosted site.';
-        });
-        return;
+    try {
+      if (isKinetic) {
+        final uri = Uri.tryParse(sanitizedInput);
+        if (uri == null || uri.scheme != 'kin' || uri.host.isEmpty || !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(uri.host)) {
+          setState(() {
+            _loading = false;
+            _errorMessage = 'Invalid Kinetic URL format.';
+          });
+          return;
+        }
+
+        // Ensure daemon is started
+        if (ref.read(daemonProvider).status != DaemonStatus.running) {
+          await ref.read(daemonProvider.notifier).startDaemon();
+        }
+
+        final doc = await resolveKinUrl(kinUrl: sanitizedInput);
+
+        if (doc.targetUrl == null) {
+          setState(() {
+            _loading = false;
+            _errorMessage = 'This name has no hosted site.';
+          });
+          return;
+        }
+
+        site = ResolvedSite(
+          kinUrl: sanitizedInput,
+          targetUrl: doc.targetUrl!,
+          trustStateJson: doc.rawJson,
+        );
+      } else {
+        // Normal web link
+        site = ResolvedSite(
+          kinUrl: sanitizedInput,
+          targetUrl: sanitizedInput,
+          trustStateJson: '', // No trust state for normal web
+        );
       }
 
-      final site = ResolvedSite(
-        kinUrl: input.startsWith('kin://') ? input : 'kin://$input',
-        targetUrl: doc.targetUrl!,
-        trustStateJson: doc.rawJson,
+      // Edge Case 99: Omit large trust state from UI cache to prevent OOM
+      final cacheSite = ResolvedSite(
+        kinUrl: site.kinUrl,
+        targetUrl: site.targetUrl,
+        trustStateJson: '',
       );
 
       setState(() {
         _loading = false;
-        _recentSites.removeWhere((s) => s.kinUrl == site.kinUrl);
-        _recentSites.insert(0, site);
+        _recentSites.removeWhere((s) => s.kinUrl == cacheSite.kinUrl);
+        _recentSites.insert(0, cacheSite);
         if (_recentSites.length > 5) _recentSites.removeLast();
       });
 
       if (mounted) {
         // Use a fade transition for a more modern feel
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => BrowserPage(site: site),
+            pageBuilder: (context, animation, secondaryAnimation) => BrowserPage(site: site!),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
@@ -122,127 +195,161 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo & Title
-                Hero(
-                  tag: 'kinetic_logo',
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    width: 72,
-                    height: 72,
-                  ),
+      child: Stack(
+        children: [
+          // Background ambient gradient
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.4),
+                  radius: 1.5,
+                  colors: [
+                    AppTheme.primary.withOpacity(0.08),
+                    AppTheme.background,
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Kinetic',
-                  style: GoogleFonts.outfit(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'The Decentralized Web',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppTheme.textSecondary,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(height: 48),
-
-                // Address bar
-                KinAddressBar(
-                  controller: _controller,
-                  loading: _loading,
-                  onSubmitted: _resolve,
-                ),
-                
-                // Error message
-                if (_errorMessage != null)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.error.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.error.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.error,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Recent sites
-                if (_recentSites.isNotEmpty) ...[
-                  const SizedBox(height: 48),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Recent Sites',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textHint,
-                        letterSpacing: 1.0,
-                        fontFeatures: const [FontFeature.enable('smcp')],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _recentSites.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final site = _recentSites[index];
-                      return _RecentSiteCard(
-                        site: site,
-                        onTap: () {
-                          _controller.text = site.displayName;
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => BrowserPage(site: site),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                return FadeTransition(opacity: animation, child: child);
-                              },
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ],
-                const SizedBox(height: 80), // Padding for bottom nav
-              ],
+              ),
             ),
           ),
-        ),
+          
+          Center(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo & Title
+                    Hero(
+                      tag: 'kinetic_logo',
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.surface.withOpacity(0.5),
+                          border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withOpacity(0.1),
+                              blurRadius: 32,
+                              offset: const Offset(0, 16),
+                            )
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          width: 80,
+                          height: 80,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Kinetic',
+                      style: GoogleFonts.outfit(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -1.0,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'The Decentralized Web',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary.withOpacity(0.8),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 48),
+
+                    // Address bar
+                    KinAddressBar(
+                      controller: _controller,
+                      loading: _loading,
+                      onSubmitted: _resolve,
+                    ),
+                    
+                    // Error message
+                    if (_errorMessage != null)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.only(top: 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 24),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  color: AppTheme.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Recent sites
+                    if (_recentSites.isNotEmpty) ...[
+                      const SizedBox(height: 56),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history_rounded, size: 18, color: AppTheme.textHint),
+                            const SizedBox(width: 8),
+                            Text(
+                              'RECENT SITES',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textHint,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _recentSites.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final site = _recentSites[index];
+                          return _RecentSiteCard(
+                            site: site,
+                            onTap: () {
+                              _controller.text = site.kinUrl;
+                              _resolve();
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 100), // Padding for bottom nav
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -296,7 +403,7 @@ class _RecentSiteCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${site.displayName}.kin',
+                          site.kinUrl.startsWith('kin://') ? '${site.displayName}.kin' : site.kinUrl,
                           style: GoogleFonts.firaCode(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -304,16 +411,28 @@ class _RecentSiteCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Row(
-                          children: [
-                            Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),
-                            SizedBox(width: 4),
-                            Text(
-                              'Verified via Kinetic DHT',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                            ),
-                          ],
-                        ),
+                        if (site.kinUrl.startsWith('kin://'))
+                          const Row(
+                            children: [
+                              Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),
+                              SizedBox(width: 4),
+                              Text(
+                                'Verified via Kinetic DHT',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          )
+                        else
+                          const Row(
+                            children: [
+                              Icon(Icons.public_rounded, size: 14, color: AppTheme.textHint),
+                              SizedBox(width: 4),
+                              Text(
+                                'Standard Web Link',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ),
                       ],
                     ),
                   ),

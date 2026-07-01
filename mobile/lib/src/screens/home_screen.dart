@@ -56,9 +56,9 @@ class HomeScreen extends StatelessWidget {
                       label: 'Browser',
                     ),
                     BottomNavigationBarItem(
-                      icon: Icon(Icons.shield_rounded),
-                      activeIcon: Icon(Icons.verified_user_rounded),
-                      label: 'Identity',
+                      icon: Icon(Icons.manage_accounts_outlined),
+                      activeIcon: Icon(Icons.manage_accounts_rounded),
+                      label: 'Manage Kin',
                     ),
                   ],
                 ),

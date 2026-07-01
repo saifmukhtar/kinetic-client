@@ -3,11 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kinetic/src/screens/browser/browser_tab.dart';
 import 'package:kinetic/src/screens/home_screen.dart';
-import 'package:kinetic/src/screens/identity/identity_tab.dart';
+import 'package:kinetic/src/screens/manage/manage_kin_tab.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _browserNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'browser');
-final _identityNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'identity');
+final _manageNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'manage');
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -30,13 +30,13 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Identity Branch
+          // Manage Kin Branch
           StatefulShellBranch(
-            navigatorKey: _identityNavigatorKey,
+            navigatorKey: _manageNavigatorKey,
             routes: [
               GoRoute(
-                path: '/identity',
-                builder: (context, state) => const IdentityTab(),
+                path: '/manage',
+                builder: (context, state) => const ManageKinTab(),
               ),
             ],
           ),

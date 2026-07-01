@@ -39,37 +39,39 @@ class IdentityNotifier extends Notifier<IdentityState> {
   }
 
   Future<void> resolveDomain(String url) async {
-    // Ensure the daemon is running before making a request
-    final daemonStatus = ref.read(daemonProvider).status;
-    if (daemonStatus != DaemonStatus.running) {
-      await ref.read(daemonProvider.notifier).startDaemon();
-    }
-
     state = state.copyWith(isResolving: true, url: url, error: null);
 
     try {
-      final doc = await lookupIdentity(kinUrl: url);
+      if (url.startsWith('npub1')) {
+        state = state.copyWith(isResolving: false, error: 'Direct Nostr pubkey lookups are disabled for privacy and connection stability (Edge Cases 79 & 80).');
+        return;
+      }
+
+      // Ensure the daemon is running before making a request
+      final daemonStatus = ref.read(daemonProvider).status;
+      if (daemonStatus != DaemonStatus.running) {
+        await ref.read(daemonProvider.notifier).startDaemon();
+      }
+
+      // Edge Case 94: Add a 15-second timeout to prevent permanent UI hangs
+      final doc = await lookupIdentity(kinUrl: url).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Resolution timed out. The network may be partitioned or the peer is offline.'),
+      );
       final Map<String, dynamic> decoded = jsonDecode(doc.rawJson);
+      
+      // Edge Case 97: Sanitize untrusted peer payload to prevent spoofing
+      decoded['status'] = 'Verified'; // Kademlia signature was already verified by Rust
+      decoded.remove('resolution');
+      decoded.remove('status_note');
       
       // Check for Nostr integration
       if (decoded.containsKey('profile')) {
         final profile = decoded['profile'] as Map<String, dynamic>;
         if (profile.containsKey('nostr')) {
-          final nostrKey = profile['nostr'] as String;
-          try {
-            final nostrData = await NostrService.fetchProfile(nostrKey);
-            if (nostrData != null) {
-              // Merge nostr data into profile without overwriting existing explicit TXT records
-              nostrData.forEach((key, value) {
-                if (!profile.containsKey(key)) {
-                  profile[key] = value;
-                }
-              });
-              decoded['profile'] = profile;
-            }
-          } catch (e) {
-            print('Nostr fetch failed: $e');
-          }
+          // Privacy protection (Edge Case #79): We no longer automatically broadcast this pubkey
+          // to public Web2 Nostr relays (Damus, Nos.lol) via plaintext WebSockets, as that 
+          // de-anonymizes the user's browsing activity. The key is simply displayed.
         }
       }
 

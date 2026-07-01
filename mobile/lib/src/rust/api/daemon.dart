@@ -8,15 +8,28 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 
             // These functions are ignored because they are not marked as `pub`: `get_or_spawn_transport_bridge`, `handle_bridge_request`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `BridgeInfo`, `DrandResponse`
 
 
-            /// Initializes the Kinetic Light Client. Safe to call multiple times —
+            /// Returns the current bridge authentication token.
+Future<String>  getBridgeToken() => RustLib.instance.api.crateApiDaemonGetBridgeToken();
+
+/// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
 Future<void>  initLightClient() => RustLib.instance.api.crateApiDaemonInitLightClient();
 
 /// Backward-compatible alias — `frb_generated.rs` was code-generated calling this name.
 /// It delegates to `init_light_client()` which is the canonical function.
 Future<void>  initDaemon({required List<String> bootstrapNodes }) => RustLib.instance.api.crateApiDaemonInitDaemon(bootstrapNodes: bootstrapNodes);
+
+/// Expose manual reconnect for Flutter AppLifecycleState.resumed
+Future<void>  reconnectNetwork() => RustLib.instance.api.crateApiDaemonReconnectNetwork();
+
+/// Shuts down all active transport bridges. Useful during hot-restarts
+/// or memory cleanups to avoid port collisions (Case 160).
+Future<void>  shutdownBridges() => RustLib.instance.api.crateApiDaemonShutdownBridges();
+
+Future<BigInt>  fetchLatestDrand() => RustLib.instance.api.crateApiDaemonFetchLatestDrand();
 
             
             

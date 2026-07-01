@@ -117,7 +117,9 @@ class TrustSheet extends StatelessWidget {
                     border: Border.all(color: AppTheme.border),
                   ),
                   child: SelectableText(
-                    trustStateJson,
+                    trustStateJson.length > 10000 
+                        ? '${trustStateJson.substring(0, 10000)}\n\n... [TRUNCATED FOR PERFORMANCE]' 
+                        : trustStateJson,
                     style: GoogleFonts.firaCode(
                       fontSize: 13,
                       color: AppTheme.textSecondary,

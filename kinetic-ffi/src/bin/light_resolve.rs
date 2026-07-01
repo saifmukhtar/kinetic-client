@@ -22,14 +22,15 @@ async fn main() -> Result<()> {
     // 2. Setup ephemeral storage and keys for the light client
     let temp_dir = env::temp_dir().join(format!("kinetic-light-client-{}", std::process::id()));
     let storage = Arc::new(SledStorage::new(&temp_dir)?);
-    println!("[*] Mining Sybil-resistant identity for Light Client...");
-    let local_key = kinetic_network::pow::mine_sybil_keypair(0, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
+    println!("[*] Generating ephemeral identity for Light Client...");
+    let local_key = libp2p::identity::Keypair::generate_ed25519();
     let (_, drand_rx) = watch::channel(0);
 
     // 3. Configure as LightClient with a single bootstrap peer
     let config = NetworkConfig {
         mode: NetworkMode::LightClient,
         listen_addr: "".to_string(),
+        external_address: None,
         bootstrap_nodes: vec![bootstrap_peer.to_string()],
         initial_drand_pulse: 1000,
         enable_mdns: false,

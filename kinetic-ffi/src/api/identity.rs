@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 
-use crate::api::resolver::Reveal;
 
 /// Public identity information for a .kin name, shown in the Identity tab.
 #[derive(Debug, Clone)]
@@ -48,7 +47,7 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
             )
         })?;
 
-    let reveal: Reveal =
+    let reveal: kinetic_core::types::Reveal =
         serde_json::from_slice(&payload).context("Failed to parse DHT payload")?;
 
     let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
@@ -74,10 +73,17 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
             )
         })?;
 
-    // For now, a name is considered "active" if it has a PeerId record in the DHT.
-    // Future: check VDF expiry from the commit record.
-    let is_active = true;
-    let status_note = "Active — PeerId record found in Kinetic DHT".to_string();
+    // Check VDF expiry
+    let latest_drand = crate::api::daemon::fetch_latest_drand().await;
+    let age = latest_drand.saturating_sub(reveal.drand_pulse);
+    let max_age_rounds = 1_000_000;
+    
+    let is_active = age <= max_age_rounds;
+    let status_note = if is_active {
+        "Active — VDF commitment is valid".to_string()
+    } else {
+        "Expired — VDF commitment has lapsed".to_string()
+    };
 
     Ok(IdentityInfo {
         name: display_name,

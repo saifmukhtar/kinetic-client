@@ -73,26 +73,21 @@ class _KinAddressBarState extends State<KinAddressBar> {
             color: _isFocused ? AppTheme.primary : AppTheme.textHint,
           ),
           const SizedBox(width: 12),
-          // kin:// prefix label
-          Text(
-            'kin://',
-            style: GoogleFonts.firaCode(
-              fontSize: 16,
-              color: AppTheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
           Expanded(
             child: TextField(
               controller: widget.controller,
               focusNode: _focusNode,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
               style: GoogleFonts.outfit(
                 fontSize: 16,
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
               decoration: const InputDecoration(
-                hintText: 'example',
+                hintText: 'example.kin or google.com',
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
