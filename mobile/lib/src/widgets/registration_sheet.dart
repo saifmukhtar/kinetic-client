@@ -83,14 +83,7 @@ class _RegistrationSheetState extends ConsumerState<RegistrationSheet> {
               onChanged: (val) => ref.read(registrationProvider.notifier).setDesktopUrl(val),
             ),
             const SizedBox(height: 16),
-            if (isError)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  regState.errorMessage ?? 'Unknown error',
-                  style: const TextStyle(color: AppTheme.error, fontSize: 14),
-                ),
-              ),
+
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -128,23 +121,31 @@ class _RegistrationSheetState extends ConsumerState<RegistrationSheet> {
           ] else ...[
             _buildProgressItem(
               title: 'Hardware Attestation',
-              isActive: regState.status == RegistrationStatus.attesting,
-              isDone: regState.status.index > RegistrationStatus.attesting.index,
+              isActive: regState.status == RegistrationStatus.attesting || (isError && regState.failedStep == RegistrationStatus.attesting),
+              isDone: regState.status.index > RegistrationStatus.attesting.index && !(isError && regState.failedStep == RegistrationStatus.attesting),
+              isError: isError && regState.failedStep == RegistrationStatus.attesting,
+              errorText: (isError && regState.failedStep == RegistrationStatus.attesting) ? regState.error?.message : null,
             ),
             _buildProgressItem(
               title: 'Requesting VDF Proof',
-              isActive: regState.status == RegistrationStatus.requestingVdf,
-              isDone: regState.status.index > RegistrationStatus.requestingVdf.index,
+              isActive: regState.status == RegistrationStatus.requestingVdf || (isError && regState.failedStep == RegistrationStatus.requestingVdf),
+              isDone: regState.status.index > RegistrationStatus.requestingVdf.index && !(isError && regState.failedStep == RegistrationStatus.requestingVdf),
+              isError: isError && regState.failedStep == RegistrationStatus.requestingVdf,
+              errorText: (isError && regState.failedStep == RegistrationStatus.requestingVdf) ? regState.error?.message : null,
             ),
             _buildProgressItem(
               title: 'Desktop Computing VDF... (takes a few minutes)',
-              isActive: regState.status == RegistrationStatus.pollingVdf,
-              isDone: regState.status.index > RegistrationStatus.pollingVdf.index,
+              isActive: regState.status == RegistrationStatus.pollingVdf || (isError && regState.failedStep == RegistrationStatus.pollingVdf),
+              isDone: regState.status.index > RegistrationStatus.pollingVdf.index && !(isError && regState.failedStep == RegistrationStatus.pollingVdf),
+              isError: isError && regState.failedStep == RegistrationStatus.pollingVdf,
+              errorText: (isError && regState.failedStep == RegistrationStatus.pollingVdf) ? regState.error?.message : null,
             ),
             _buildProgressItem(
               title: 'Broadcasting Reveal to DHT',
-              isActive: regState.status == RegistrationStatus.broadcasting,
-              isDone: regState.status.index > RegistrationStatus.broadcasting.index,
+              isActive: regState.status == RegistrationStatus.broadcasting || (isError && regState.failedStep == RegistrationStatus.broadcasting),
+              isDone: regState.status.index > RegistrationStatus.broadcasting.index && !(isError && regState.failedStep == RegistrationStatus.broadcasting),
+              isError: isError && regState.failedStep == RegistrationStatus.broadcasting,
+              errorText: (isError && regState.failedStep == RegistrationStatus.broadcasting) ? regState.error?.message : null,
             ),
           ],
         ],
@@ -153,16 +154,31 @@ class _RegistrationSheetState extends ConsumerState<RegistrationSheet> {
     );
   }
 
-  Widget _buildProgressItem({required String title, required bool isActive, required bool isDone}) {
+  Widget _buildProgressItem({
+    required String title,
+    required bool isActive,
+    required bool isDone,
+    bool isError = false,
+    String? errorText,
+  }) {
     Color color = AppTheme.textHint;
-    if (isDone) color = AppTheme.success;
-    if (isActive) color = AppTheme.primary;
+    if (isDone) {
+      color = AppTheme.success;
+    }
+    if (isError) {
+      color = AppTheme.error;
+    } else if (isActive) {
+      color = AppTheme.primary;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isDone)
+          if (isError)
+            const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 24)
+          else if (isDone)
             const Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 24)
           else if (isActive)
             const SizedBox(
@@ -174,12 +190,25 @@ class _RegistrationSheetState extends ConsumerState<RegistrationSheet> {
             const Icon(Icons.radio_button_unchecked, color: AppTheme.textHint, size: 24),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: isActive || isError ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                if (errorText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      errorText,
+                      style: const TextStyle(color: AppTheme.error, fontSize: 13),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

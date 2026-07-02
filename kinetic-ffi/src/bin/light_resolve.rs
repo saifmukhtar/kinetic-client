@@ -59,16 +59,22 @@ async fn main() -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     
     println!("[*] Querying Kademlia DHT for name: {}", name);
-    let payload = client.resolve_redundant_payload(name).await?;
+    let payload_result = client.resolve_redundant_payload(name).await;
 
-    if let Some(data) = payload {
-        if let Ok(text) = String::from_utf8(data.clone()) {
-            println!("\n[+] SUCCESS: Resolved payload (UTF-8): {}", text);
-        } else {
-            println!("\n[+] SUCCESS: Resolved payload (Bytes): {:?}", data);
+    match payload_result {
+        Ok(data) => {
+            if let Ok(text) = String::from_utf8(data.clone()) {
+                println!("\n[+] SUCCESS: Resolved payload (UTF-8): {}", text);
+            } else {
+                println!("\n[+] SUCCESS: Resolved payload (Bytes): {:?}", data);
+            }
         }
-    } else {
-        println!("\n[-] FAILED: Name not found in DHT");
+        Err(kinetic_core::error::ResolutionError::NotFound { .. }) => {
+            println!("\n[-] FAILED: Name not found in DHT");
+        }
+        Err(e) => {
+            println!("\n[-] FAILED: DHT lookup error: {}", e);
+        }
     }
 
     Ok(())

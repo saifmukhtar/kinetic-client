@@ -123,29 +123,45 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Error
                   if (identityState.error != null)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.error.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.error.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 22),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              identityState.error!.replaceFirst('Exception: ', ''),
-                              style: const TextStyle(fontSize: 14, color: AppTheme.error),
+                    Builder(builder: (context) {
+                      IconData icon = Icons.error_outline_rounded;
+                      switch (identityState.error!.kind) {
+                        case IdentityErrorKind.notFound:
+                          icon = Icons.search_off_rounded;
+                          break;
+                        case IdentityErrorKind.offline:
+                          icon = Icons.wifi_off_rounded;
+                          break;
+                        case IdentityErrorKind.network:
+                          icon = Icons.cloud_off_rounded;
+                          break;
+                        default:
+                          break;
+                      }
+                      
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.error.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppTheme.error.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(icon, color: AppTheme.error, size: 22),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                identityState.error!.message,
+                                style: const TextStyle(fontSize: 14, color: AppTheme.error),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
+                          ],
+                        ),
+                      );
+                    }),
 
                   // Result card
                   if (identityState.data != null && !identityState.isResolving)
@@ -267,6 +283,9 @@ class _ProfileHeader extends StatelessWidget {
     final github = profile['github'] is String ? profile['github'] as String : null;
     final twitter = (profile['twitter'] is String ? profile['twitter'] : null) ?? (profile['x'] is String ? profile['x'] : null);
     final lud16 = profile['lud16'] is String ? profile['lud16'] as String : null;
+    final picture = profile['picture'] is String ? profile['picture'] as String : null;
+    final banner = profile['banner'] is String ? profile['banner'] as String : null;
+    final about = profile['about'] is String ? profile['about'] as String : null;
 
     return Column(
       children: [
@@ -289,7 +308,8 @@ class _ProfileHeader extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 56,
                   backgroundColor: AppTheme.surfaceVariant,
-                  child: Icon(Icons.person_rounded, size: 56, color: AppTheme.textHint),
+                  backgroundImage: (picture != null && picture.isNotEmpty) ? NetworkImage(picture) : null,
+                  child: (picture == null || picture.isEmpty) ? Icon(Icons.person_rounded, size: 56, color: AppTheme.textHint) : null,
                 ),
               ),
               const SizedBox(height: 24),
@@ -326,6 +346,16 @@ class _ProfileHeader extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                
+              if (about != null && about.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    about,
+                    style: const TextStyle(fontSize: 15, color: AppTheme.textSecondary, height: 1.4),
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 

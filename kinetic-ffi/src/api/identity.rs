@@ -36,16 +36,18 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
     let fqdn = format!("{}.", display_name);
 
     // DHT lookup.
-    let payload = network_client
-        .resolve_redundant_payload(&fqdn)
-        .await
-        .map_err(|e| anyhow::anyhow!("DHT lookup failed for '{}': {}", display_name, e))?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "'{}' was not found in the Kinetic network",
-                display_name
-            )
-        })?;
+    let payload = match network_client.resolve_redundant_payload(&fqdn).await {
+        Ok(p) => p,
+        Err(kinetic_core::error::ResolutionError::NotFound { .. }) => {
+            return Err(anyhow::anyhow!("'{}' was not found in the Kinetic network", display_name));
+        }
+        Err(kinetic_core::error::ResolutionError::Offline) => {
+            return Err(anyhow::anyhow!("You appear to be offline. Cannot connect to the Kinetic network."));
+        }
+        Err(e) => {
+            return Err(anyhow::anyhow!("DHT lookup failed for '{}': {}", display_name, e));
+        }
+    };
 
     let reveal: kinetic_core::types::Reveal =
         serde_json::from_slice(&payload).context("Failed to parse DHT payload")?;

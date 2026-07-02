@@ -60,6 +60,15 @@ class NostrService {
                   if (event['kind'] == 0) {
                     final content = event['content'] as String;
                     final profile = jsonDecode(content) as Map<String, dynamic>;
+                    
+                    // Sanitize image URLs (Edge Case 85 prevention)
+                    if (profile.containsKey('picture')) {
+                      profile['picture'] = _sanitizeImageUrl(profile['picture']);
+                    }
+                    if (profile.containsKey('banner')) {
+                      profile['banner'] = _sanitizeImageUrl(profile['banner']);
+                    }
+
                     if (!completer.isCompleted) {
                       completer.complete(profile);
                       closeAll();
@@ -240,5 +249,21 @@ class NostrService {
     }
 
     return ret;
+  }
+
+  static String? _sanitizeImageUrl(dynamic url) {
+    if (url is! String) return null;
+    if (!url.startsWith('https://') && !url.startsWith('http://')) return null;
+    
+    try {
+      final uri = Uri.parse(url);
+      final path = uri.path.toLowerCase();
+      // Must end in a standard image extension to prevent endless streams/1GB payloads
+      if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || 
+          path.endsWith('.gif') || path.endsWith('.webp')) {
+        return url;
+      }
+    } catch (_) {}
+    return null;
   }
 }

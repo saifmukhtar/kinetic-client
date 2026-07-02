@@ -8,6 +8,7 @@ import 'package:kinetic/src/screens/browser/browser_page.dart';
 import 'package:kinetic/src/theme/app_theme.dart';
 import 'package:kinetic/src/widgets/kin_address_bar.dart';
 import 'package:kinetic/src/providers/daemon_provider.dart';
+import 'package:kinetic/src/providers/identity_provider.dart';
 import 'package:app_links/app_links.dart';
 import 'dart:async';
 
@@ -22,7 +23,7 @@ class BrowserTab extends ConsumerStatefulWidget {
 class _BrowserTabState extends ConsumerState<BrowserTab> {
   final TextEditingController _controller = TextEditingController();
   bool _loading = false;
-  String? _errorMessage;
+  IdentityError? _error;
 
   // Recent sites (in-memory, last 5)
   final List<ResolvedSite> _recentSites = [];
@@ -88,7 +89,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
     FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
-      _errorMessage = null;
+      _error = null;
     });
 
     var sanitizedInput = input.toLowerCase();
@@ -125,7 +126,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
         if (uri == null || uri.scheme != 'kin' || uri.host.isEmpty || !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(uri.host)) {
           setState(() {
             _loading = false;
-            _errorMessage = 'Invalid Kinetic URL format.';
+            _error = const IdentityError(IdentityErrorKind.notFound, 'Invalid Kinetic URL format.');
           });
           return;
         }
@@ -140,7 +141,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
         if (doc.targetUrl == null) {
           setState(() {
             _loading = false;
-            _errorMessage = 'This name has no hosted site.';
+            _error = const IdentityError(IdentityErrorKind.notFound, 'This name has no hosted site.');
           });
           return;
         }
@@ -185,9 +186,22 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
         );
       }
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      IdentityErrorKind kind = IdentityErrorKind.unknown;
+      String cleanMsg = msg.split('\n').first; // Strip stacktrace
+      if (msg.contains('not found in the Kinetic network')) {
+        kind = IdentityErrorKind.notFound;
+        cleanMsg = "Name '${sanitizedInput}' was not found in the Kinetic network. It may be unregistered.";
+      } else if (msg.contains('offline') || msg.contains('timed out') || msg.contains('partitioned')) {
+        kind = IdentityErrorKind.offline;
+        cleanMsg = "You appear to be offline or the network is partitioned.";
+      } else if (msg.contains('DHT lookup failed')) {
+        kind = IdentityErrorKind.network;
+        cleanMsg = "DHT lookup failed. Check your connection.";
+      }
       setState(() {
         _loading = false;
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _error = IdentityError(kind, cleanMsg);
       });
     }
   }
@@ -276,33 +290,50 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                     ),
                     
                     // Error message
-                    if (_errorMessage != null)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.only(top: 24),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        decoration: BoxDecoration(
-                          color: AppTheme.error.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.error.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline_rounded, color: AppTheme.error, size: 24),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                _errorMessage!,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: AppTheme.error,
-                                  fontWeight: FontWeight.w600,
+                    if (_error != null)
+                      Builder(builder: (context) {
+                        IconData icon = Icons.error_outline_rounded;
+                        switch (_error!.kind) {
+                          case IdentityErrorKind.notFound:
+                            icon = Icons.search_off_rounded;
+                            break;
+                          case IdentityErrorKind.offline:
+                            icon = Icons.wifi_off_rounded;
+                            break;
+                          case IdentityErrorKind.network:
+                            icon = Icons.cloud_off_rounded;
+                            break;
+                          default:
+                            break;
+                        }
+
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.only(top: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(icon, color: AppTheme.error, size: 24),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Text(
+                                  _error!.message,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: AppTheme.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
+                            ],
+                          ),
+                        );
+                      }),
 
                     // Recent sites
                     if (_recentSites.isNotEmpty) ...[

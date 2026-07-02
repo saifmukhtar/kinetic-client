@@ -55,11 +55,18 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
     let fqdn = format!("{}.", clean);
 
     // Step 1 — DHT Name Resolution: look up the PeerId for this .kin name.
-    let payload = network_client
-        .resolve_redundant_payload(&fqdn)
-        .await
-        .map_err(|e| anyhow::anyhow!("DHT resolution failed for '{}': {}", clean, e))?
-        .ok_or_else(|| anyhow::anyhow!("Name '{}' was not found in the Kinetic network", clean))?;
+    let payload = match network_client.resolve_redundant_payload(&fqdn).await {
+        Ok(p) => p,
+        Err(kinetic_core::error::ResolutionError::NotFound { .. }) => {
+            return Err(anyhow::anyhow!("Name '{}' was not found in the Kinetic network. It may be unregistered.", clean));
+        }
+        Err(kinetic_core::error::ResolutionError::Offline) => {
+            return Err(anyhow::anyhow!("You appear to be offline. Cannot connect to the Kinetic network."));
+        }
+        Err(e) => {
+            return Err(anyhow::anyhow!("DHT resolution failed for '{}': {}", clean, e));
+        }
+    };
 
     // Step 2 — Parse the Reveal envelope to get the DnsZone.
     let reveal: kinetic_core::types::Reveal =
@@ -79,14 +86,14 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
     let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
         .context("Failed to parse DNS zone from DHT payload")?;
 
-    // Step 3 — Extract the PeerId record from the apex (@) of the zone.
-    let peer_id_str = zone
+    // Step 3 — Extract the KID record from the apex (@) of the zone.
+    let kid_str = zone
         .records
         .get("@")
         .and_then(|records| {
             records.iter().find_map(|r| {
-                if let kinetic_core::types::DnsRecord::PeerId(pid) = r {
-                    Some(pid.clone())
+                if let kinetic_core::types::DnsRecord::KID(kid) = r {
+                    Some(kid.clone())
                 } else {
                     None
                 }
@@ -94,19 +101,42 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
         })
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "No PeerId record found at the apex of '{}'. This name may not host a site.",
+                "No KID record found at the apex of '{}'. This name is not linked to an identity.",
                 clean
             )
         })?;
 
+    // Step 3.5 — Resolve the Capability Manifest using the derived manifest key
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(format!("{}#manifest", kid_str).as_bytes());
+    let manifest_key = hex::encode(hasher.finalize());
+
+    let manifest_payload = network_client
+        .resolve_redundant_payload(&manifest_key)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to resolve manifest for KID {}: {}", kid_str, e))?;
+
+    let manifest: kinetic_kid::CapabilityManifest = serde_json::from_slice(&manifest_payload)
+        .context("Failed to parse CapabilityManifest from DHT payload")?;
+
+    // Find the website service endpoint
+    let service = manifest
+        .services
+        .iter()
+        .find(|s| s.service_type == "website")
+        .ok_or_else(|| anyhow::anyhow!("No 'website' service found in manifest for KID {}", kid_str))?;
+
+    let peer_id_str = service.endpoint.clone();
+
     let peer_id = peer_id_str
         .parse::<libp2p::PeerId>()
-        .map_err(|e| anyhow::anyhow!("Invalid PeerId '{}': {}", peer_id_str, e))?;
+        .map_err(|e| anyhow::anyhow!("Invalid PeerId '{}' in manifest: {}", peer_id_str, e))?;
 
     // Step 4 — Get or spawn the local HTTP transport bridge for this peer.
-    let port = crate::api::daemon::get_or_spawn_transport_bridge(peer_id)
+    let port = crate::api::daemon::get_or_spawn_transport_bridge(peer_id, &clean)
         .await
-        .context("Failed to establish transport bridge to peer")?;
+        .map_err(|e| anyhow::anyhow!("Failed to setup transport bridge: {}", e))?;
 
     let trust_state = serde_json::json!({
         "status": "Verified",
@@ -189,11 +219,18 @@ pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument> {
 
     let fqdn = format!("{}.", clean);
 
-    let payload = network_client
-        .resolve_redundant_payload(&fqdn)
-        .await
-        .map_err(|e| anyhow::anyhow!("DHT resolution failed for '{}': {}", clean, e))?
-        .ok_or_else(|| anyhow::anyhow!("Name '{}' was not found in the Kinetic network", clean))?;
+    let payload = match network_client.resolve_redundant_payload(&fqdn).await {
+        Ok(p) => p,
+        Err(kinetic_core::error::ResolutionError::NotFound { .. }) => {
+            return Err(anyhow::anyhow!("Name '{}' was not found in the Kinetic network. It may be unregistered.", clean));
+        }
+        Err(kinetic_core::error::ResolutionError::Offline) => {
+            return Err(anyhow::anyhow!("You appear to be offline. Cannot connect to the Kinetic network."));
+        }
+        Err(e) => {
+            return Err(anyhow::anyhow!("DHT resolution failed for '{}': {}", clean, e));
+        }
+    };
 
     let reveal: kinetic_core::types::Reveal =
         serde_json::from_slice(&payload).context("Failed to parse DHT payload")?;

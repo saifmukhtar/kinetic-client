@@ -32,11 +32,13 @@ pub(crate) static TRANSPORT_BRIDGES: OnceCell<Arc<Mutex<HashMap<String, BridgeIn
 
 /// A randomly generated token that must be provided by the WebView 
 /// (via query param or cookie) to access the localhost transport bridge.
-pub static BRIDGE_TOKEN: OnceCell<String> = OnceCell::const_new();
+pub static BRIDGE_TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// Returns the current bridge authentication token.
 pub fn get_bridge_token() -> String {
-    BRIDGE_TOKEN.get().cloned().unwrap_or_default()
+    BRIDGE_TOKEN.get_or_init(|| {
+        libp2p::identity::Keypair::generate_ed25519().public().to_peer_id().to_string()
+    }).clone()
 }
 
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
@@ -69,11 +71,21 @@ pub async fn init_light_client() -> Result<()> {
 
     let identity_path = base_tmp.join("kinetic_identity.bin");
     let local_key = if let Ok(bytes) = std::fs::read(&identity_path) {
-        libp2p::identity::Keypair::from_protobuf_encoding(&bytes).unwrap_or_else(|_| {
+        if let Ok(key) = libp2p::identity::Keypair::from_protobuf_encoding(&bytes) {
+            let peer_id = key.public().to_peer_id();
+            if kinetic_network::pow::is_valid_sybil_pow(&peer_id, current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS) {
+                key
+            } else {
+                tracing::info!("Cached PoW identity expired for current epoch. Mining a new one...");
+                let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
+                let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+                k
+            }
+        } else {
             let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
             let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
             k
-        })
+        }
     } else {
         let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
         let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
@@ -140,7 +152,7 @@ pub async fn init_light_client() -> Result<()> {
 /// Returns the local HTTP port for a given peer, spawning a transport bridge
 /// if one does not already exist. The Flutter WebView loads the site via
 /// `http://127.0.0.1:<port>` which this bridge proxies over libp2p.
-pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId) -> Result<u16> {
+pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId, fqdn: &str) -> Result<u16> {
     let peer_str = peer_id.to_string();
 
     let map_arc = TRANSPORT_BRIDGES
@@ -174,7 +186,7 @@ pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId) -> Re
     let app = Router::new()
         .route("/{*path}", any(handle_bridge_request))
         .route("/", any(handle_bridge_request))
-        .with_state((client, peer_id));
+        .with_state((client, peer_id, fqdn.to_string()));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
@@ -220,7 +232,7 @@ pub async fn init_daemon(bootstrap_nodes: Vec<String>) -> anyhow::Result<()> {
 /// Proxies an incoming HTTP request from the WebView to the target peer
 /// over the libp2p stream multiplexer.
 async fn handle_bridge_request(
-    State((client, peer_id)): State<(Arc<NetworkClient>, libp2p::PeerId)>,
+    State((client, peer_id, fqdn)): State<(Arc<NetworkClient>, libp2p::PeerId, String)>,
     req: Request,
 ) -> Result<Response, StatusCode> {
     let method = req.method().as_str().to_string();
@@ -253,7 +265,11 @@ async fn handle_bridge_request(
     let mut headers = HashMap::new();
     for (name, value) in req.headers() {
         if let Ok(val_str) = value.to_str() {
-            headers.insert(name.as_str().to_string(), val_str.to_string());
+            if name.as_str().eq_ignore_ascii_case("host") {
+                headers.insert("host".to_string(), fqdn.clone());
+            } else {
+                headers.insert(name.as_str().to_string(), val_str.to_string());
+            }
         }
     }
 
@@ -269,10 +285,12 @@ async fn handle_bridge_request(
         body: body_bytes,
     };
 
-    let proxy_resp = client
-        .send_proxy_request(peer_id, proxy_req)
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let proxy_resp = match client.send_proxy_request(peer_id, proxy_req).await {
+        Ok(resp) => resp,
+        Err(kinetic_network::client::ProxyError::Timeout) => return Err(StatusCode::GATEWAY_TIMEOUT),
+        Err(kinetic_network::client::ProxyError::Offline) => return Err(StatusCode::SERVICE_UNAVAILABLE),
+        Err(_) => return Err(StatusCode::BAD_GATEWAY),
+    };
 
     let mut builder = Response::builder().status(proxy_resp.status);
     for (k, v) in proxy_resp.headers {
@@ -342,7 +360,7 @@ pub async fn fetch_latest_drand() -> u64 {
     // Offline fallback mathematically estimated from quicknet genesis
     let genesis_time = 1692803367u64;
     let round_period = 3u64;
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
     if now > genesis_time {
         return (now - genesis_time) / round_period;
     }

@@ -77,10 +77,11 @@ class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
     final name = input.endsWith('.kin') ? input.substring(0, input.length - 4) : input;
 
     // It's available if there's an error (not found) or explicitly inactive
-    final isAvailable = identityState.error != null || 
+    final isAvailable = (identityState.error != null && identityState.error!.kind == IdentityErrorKind.notFound) || 
         (identityState.data != null && identityState.data!['status'] != 'Verified');
         
     final isTaken = identityState.data != null && identityState.data!['status'] == 'Verified' && identityState.error == null;
+    final isNetworkError = identityState.error != null && identityState.error!.kind != IdentityErrorKind.notFound;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -189,6 +190,28 @@ class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
                   Expanded(
                     child: Text(
                       '$name.kin is already registered',
+                      style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (isNetworkError)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.error.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.error.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_rounded, color: AppTheme.error),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      identityState.error!.message,
                       style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
                     ),
                   ),

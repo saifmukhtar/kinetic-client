@@ -4,11 +4,20 @@ import 'package:kinetic/src/services/nostr_service.dart';
 import 'package:kinetic/src/rust/api/resolver.dart';
 import 'package:kinetic/src/providers/daemon_provider.dart';
 
+enum IdentityErrorKind { network, notFound, offline, unknown }
+
+class IdentityError {
+  final IdentityErrorKind kind;
+  final String message;
+
+  const IdentityError(this.kind, this.message);
+}
+
 class IdentityState {
   final bool isResolving;
   final String? url;
   final Map<String, dynamic>? data;
-  final String? error;
+  final IdentityError? error;
 
   const IdentityState({
     this.isResolving = false,
@@ -21,13 +30,14 @@ class IdentityState {
     bool? isResolving,
     String? url,
     Map<String, dynamic>? data,
-    String? error,
+    IdentityError? error,
+    bool clearError = false,
   }) {
     return IdentityState(
       isResolving: isResolving ?? this.isResolving,
       url: url ?? this.url,
       data: data ?? this.data,
-      error: error, // Can be null to clear errors
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
@@ -39,11 +49,14 @@ class IdentityNotifier extends Notifier<IdentityState> {
   }
 
   Future<void> resolveDomain(String url) async {
-    state = state.copyWith(isResolving: true, url: url, error: null);
+    state = state.copyWith(isResolving: true, url: url, clearError: true);
 
     try {
       if (url.startsWith('npub1')) {
-        state = state.copyWith(isResolving: false, error: 'Direct Nostr pubkey lookups are disabled for privacy and connection stability (Edge Cases 79 & 80).');
+        state = state.copyWith(
+          isResolving: false, 
+          error: const IdentityError(IdentityErrorKind.unknown, 'Direct Nostr pubkey lookups are disabled for privacy and connection stability (Edge Cases 79 & 80).')
+        );
         return;
       }
 
@@ -53,9 +66,11 @@ class IdentityNotifier extends Notifier<IdentityState> {
         await ref.read(daemonProvider.notifier).startDaemon();
       }
 
-      // Edge Case 94: Add a 15-second timeout to prevent permanent UI hangs
+      // Edge Case 94: Add a 45-second timeout to prevent permanent UI hangs.
+      // Kademlia may attempt to dial unroutable private IPs broadcasted by cloud nodes,
+      // which take ~10s each to timeout. 45s gives the DHT enough time to recover.
       final doc = await lookupIdentity(kinUrl: url).timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 45),
         onTimeout: () => throw Exception('Resolution timed out. The network may be partitioned or the peer is offline.'),
       );
       final Map<String, dynamic> decoded = jsonDecode(doc.rawJson);
@@ -69,15 +84,32 @@ class IdentityNotifier extends Notifier<IdentityState> {
       if (decoded.containsKey('profile')) {
         final profile = decoded['profile'] as Map<String, dynamic>;
         if (profile.containsKey('nostr')) {
-          // Privacy protection (Edge Case #79): We no longer automatically broadcast this pubkey
-          // to public Web2 Nostr relays (Damus, Nos.lol) via plaintext WebSockets, as that 
-          // de-anonymizes the user's browsing activity. The key is simply displayed.
+          // Since this is an explicit manual lookup from the Identity Lookup sheet
+          // and not an automatic search-bar autocomplete, it is safe to query relays.
+          final nostrKey = profile['nostr'] as String;
+          final nostrProfile = await NostrService.fetchProfile(nostrKey);
+          if (nostrProfile != null) {
+            profile.addAll(nostrProfile);
+          }
         }
       }
 
       state = state.copyWith(isResolving: false, data: decoded);
     } catch (e) {
-      state = state.copyWith(isResolving: false, error: e.toString());
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      IdentityErrorKind kind = IdentityErrorKind.unknown;
+      String cleanMsg = msg.split('\n').first; // Strip stacktrace
+      if (msg.contains('not found in the Kinetic network')) {
+        kind = IdentityErrorKind.notFound;
+        cleanMsg = "Name '${url}' was not found in the Kinetic network. It may be unregistered.";
+      } else if (msg.contains('offline') || msg.contains('timed out') || msg.contains('partitioned')) {
+        kind = IdentityErrorKind.offline;
+        cleanMsg = "You appear to be offline or the network is partitioned.";
+      } else if (msg.contains('DHT lookup failed')) {
+        kind = IdentityErrorKind.network;
+        cleanMsg = "DHT lookup failed. Check your connection.";
+      }
+      state = state.copyWith(isResolving: false, error: IdentityError(kind, cleanMsg));
     }
   }
 

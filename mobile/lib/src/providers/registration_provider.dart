@@ -10,6 +10,20 @@ import 'package:kinetic/src/services/nostr_service.dart';
 import 'package:kinetic/src/rust/api/delegation.dart';
 import 'package:http/http.dart' as http;
 
+enum RegistrationErrorKind {
+  attestation,
+  request,
+  vdf,
+  network,
+  unknown
+}
+
+class RegistrationError {
+  final RegistrationErrorKind kind;
+  final String message;
+  const RegistrationError(this.kind, this.message);
+}
+
 enum RegistrationStatus {
   idle,
   attesting,
@@ -22,7 +36,8 @@ enum RegistrationStatus {
 
 class RegistrationState {
   final RegistrationStatus status;
-  final String? errorMessage;
+  final RegistrationStatus? failedStep;
+  final RegistrationError? error;
   final String? desktopUrl;
   
   // For polling VDF
@@ -30,20 +45,24 @@ class RegistrationState {
 
   const RegistrationState({
     this.status = RegistrationStatus.idle,
-    this.errorMessage,
+    this.failedStep,
+    this.error,
     this.desktopUrl,
     this.challengeHex,
   });
 
   RegistrationState copyWith({
     RegistrationStatus? status,
-    String? errorMessage,
+    RegistrationStatus? failedStep,
+    RegistrationError? error,
     String? desktopUrl,
     String? challengeHex,
+    bool clearError = false,
   }) {
     return RegistrationState(
       status: status ?? this.status,
-      errorMessage: errorMessage,
+      failedStep: clearError ? null : (failedStep ?? this.failedStep),
+      error: clearError ? null : (error ?? this.error),
       desktopUrl: desktopUrl ?? this.desktopUrl,
       challengeHex: challengeHex ?? this.challengeHex,
     );
@@ -153,7 +172,11 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       
       await _broadcastReveal(name, privateKeyBytes, vdfJobResponse, proofBytes);
     } else {
-      state = state.copyWith(status: RegistrationStatus.error, errorMessage: "Failed to receive VDF proof from node");
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        failedStep: RegistrationStatus.pollingVdf,
+        error: const RegistrationError(RegistrationErrorKind.vdf, "Failed to receive VDF proof from node"),
+      );
     }
   }
 
@@ -176,7 +199,8 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       if (!isLocalNode) {
         state = state.copyWith(
           status: RegistrationStatus.error, 
-          errorMessage: "Rooted devices cannot use public nodes. Please run your own local Desktop Node."
+          failedStep: RegistrationStatus.attesting,
+          error: const RegistrationError(RegistrationErrorKind.attestation, "Rooted devices cannot use public nodes. Please run your own local Desktop Node."),
         );
         return;
       }
@@ -187,7 +211,11 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     final prefs = await SharedPreferences.getInstance();
     final namesList = prefs.getStringList('delegated_names') ?? [];
     if (namesList.length >= 3 && !namesList.contains(name)) {
-      state = state.copyWith(status: RegistrationStatus.error, errorMessage: "Maximum limit of 3 names reached for this device.");
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        failedStep: RegistrationStatus.attesting,
+        error: const RegistrationError(RegistrationErrorKind.attestation, "Maximum limit of 3 names reached for this device."),
+      );
       return;
     }
 
@@ -242,7 +270,11 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         _startPolling(desktopUrl, name, privateKeyBytes, vdfJobResponse);
       }
     } catch (e) {
-      state = state.copyWith(status: RegistrationStatus.error, errorMessage: e.toString());
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        failedStep: RegistrationStatus.requestingVdf,
+        error: RegistrationError(RegistrationErrorKind.request, e.toString().replaceFirst('Exception: ', '')),
+      );
     }
   }
 
@@ -292,10 +324,18 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         
         state = state.copyWith(status: RegistrationStatus.success);
       } else {
-        state = state.copyWith(status: RegistrationStatus.error, errorMessage: "Failed to broadcast reveal to DHT.");
+        state = state.copyWith(
+          status: RegistrationStatus.error,
+          failedStep: RegistrationStatus.broadcasting,
+          error: const RegistrationError(RegistrationErrorKind.network, "Failed to broadcast reveal to DHT."),
+        );
       }
     } catch (e) {
-      state = state.copyWith(status: RegistrationStatus.error, errorMessage: e.toString());
+      state = state.copyWith(
+        status: RegistrationStatus.error,
+        failedStep: RegistrationStatus.broadcasting,
+        error: RegistrationError(RegistrationErrorKind.network, e.toString().replaceFirst('Exception: ', '')),
+      );
     }
   }
 
