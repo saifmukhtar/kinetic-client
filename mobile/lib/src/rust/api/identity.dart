@@ -6,43 +6,46 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
-
-
-            /// Looks up a .kin name in the Kinetic DHT and returns its public identity info.
+/// Looks up a .kin name in the Kinetic DHT and returns its public identity info.
 ///
 /// This is a read-only operation — it does not create or modify any data.
-Future<IdentityInfo>  fetchIdentity({required String name }) => RustLib.instance.api.crateApiIdentityFetchIdentity(name: name);
+Future<IdentityInfo> fetchIdentity({required String name}) =>
+    RustLib.instance.api.crateApiIdentityFetchIdentity(name: name);
 
-            /// Public identity information for a .kin name, shown in the Identity tab.
-class IdentityInfo  {
-                /// The resolved .kin name (e.g. `saif.kin`)
-final String name;
-/// The libp2p PeerId of the node that owns this name
-final String peerId;
-/// Whether the name has an active VDF commitment
-final bool isActive;
-/// Human-readable note about the VDF / expiry status
-final String statusNote;
+/// Public identity information for a .kin name, shown in the Identity tab.
+class IdentityInfo {
+  /// The resolved .kin name (e.g. `saif.kin`)
+  final String name;
 
-                const IdentityInfo({required this.name ,required this.peerId ,required this.isActive ,required this.statusNote ,});
+  /// The libp2p PeerId of the node that owns this name
+  final String peerId;
 
-                
-                
+  /// Whether the name has an active VDF commitment
+  final bool isActive;
 
-                
-        @override
-        int get hashCode => name.hashCode^peerId.hashCode^isActive.hashCode^statusNote.hashCode;
-        
+  /// Human-readable note about the VDF / expiry status
+  final String statusNote;
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is IdentityInfo &&
-                runtimeType == other.runtimeType
-                && name == other.name&& peerId == other.peerId&& isActive == other.isActive&& statusNote == other.statusNote;
-        
-            }
-            
+  const IdentityInfo({
+    required this.name,
+    required this.peerId,
+    required this.isActive,
+    required this.statusNote,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^ peerId.hashCode ^ isActive.hashCode ^ statusNote.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is IdentityInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          peerId == other.peerId &&
+          isActive == other.isActive &&
+          statusNote == other.statusNote;
+}

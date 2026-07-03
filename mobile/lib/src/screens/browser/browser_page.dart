@@ -87,6 +87,13 @@ class _BrowserPageState extends State<BrowserPage>
                   'Could not connect to the Kinetic peer. The node may be offline.'));
             });
           },
+          onSslAuthError: (error) async {
+            // Bypass SSL validation errors.
+            // This is required because the Kinetic local proxy uses a self-signed
+            // Root CA (Kinetic Local Root CA) to intercept and encrypt `.kin` traffic.
+            // The Android/iOS WebView does not inherently trust this generated CA.
+            await error.proceed();
+          },
         ),
       )
       ..addJavaScriptChannel(

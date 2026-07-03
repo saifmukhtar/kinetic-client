@@ -19,10 +19,9 @@ pub struct ResolvedKinDocument {
 ///   3. Spawn (or reuse) a local HTTP transport bridge for that `PeerId`
 ///   4. Return `http://127.0.0.1:<port>` as the target URL for the WebView
 pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
-    // Ensure the light client is initialized before any DHT queries.
-    crate::api::daemon::init_light_client()
-        .await
-        .context("Failed to initialize Kinetic Light Client")?;
+    if !crate::api::daemon::NETWORK_CLIENT.initialized() {
+        return Err(anyhow::anyhow!("Kinetic Light Client is not initialized"));
+    }
         
     static HAS_BOOTSTRAPPED: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
     HAS_BOOTSTRAPPED.get_or_init(|| async {
@@ -127,11 +126,23 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
         .find(|s| s.service_type == "website")
         .ok_or_else(|| anyhow::anyhow!("No 'website' service found in manifest for KID {}", kid_str))?;
 
-    let peer_id_str = service.endpoint.clone();
-
-    let peer_id = peer_id_str
-        .parse::<libp2p::PeerId>()
-        .map_err(|e| anyhow::anyhow!("Invalid PeerId '{}' in manifest: {}", peer_id_str, e))?;
+    let mut peer_id_str = service.endpoint.clone();
+    if peer_id_str.starts_with("p2p://") {
+        peer_id_str = peer_id_str.replace("p2p://", "");
+    }
+    let peer_id = if let Ok(ma) = peer_id_str.parse::<libp2p::Multiaddr>() {
+        let mut id = None;
+        for p in ma.iter() {
+            if let libp2p::multiaddr::Protocol::P2p(p_id) = p {
+                id = Some(p_id);
+                break;
+            }
+        }
+        id.ok_or_else(|| anyhow::anyhow!("No PeerId found in multiaddr"))?
+    } else {
+        peer_id_str.parse::<libp2p::PeerId>()
+            .map_err(|e| anyhow::anyhow!("Invalid PeerId '{}': {}", peer_id_str, e))?
+    };
 
     // Step 4 — Get or spawn the local HTTP transport bridge for this peer.
     let port = crate::api::daemon::get_or_spawn_transport_bridge(peer_id, &clean)
@@ -152,10 +163,10 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument> {
     
     // Safely construct the target URL while preserving the original path and query,
     // and injecting the bridge_token securely.
-    let mut local_url = url::Url::parse(&format!("http://127.0.0.1:{}", port))
-        .map_err(|e| anyhow::anyhow!("Internal URL error: {}", e))?;
-        
+    let mut local_url = url::Url::parse(&format!("http://localhost:{}", port)).unwrap();
     local_url.set_path(parsed_url.path());
+    local_url.set_query(parsed_url.query());
+    local_url.set_fragment(parsed_url.fragment());
     
     // Append the original query parameters, and then forcibly append the bridge_token
     let mut query_pairs = parsed_url.query_pairs().into_owned().collect::<Vec<_>>();
@@ -181,7 +192,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve() {
-        crate::api::daemon::init_light_client().await.unwrap();
+        crate::api::daemon::init_light_client("/tmp".to_string(), None).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
         let doc = crate::api::resolver::resolve_kin_url("letsgoitsanewkineticdomain.kin".to_string()).await;
         println!("Resolve result: {:?}", doc);
@@ -190,9 +201,9 @@ mod tests {
 
 /// Looks up the identity details of a `kin://` URL without requiring a `PeerId` routing record.
 pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument> {
-    crate::api::daemon::init_light_client()
-        .await
-        .context("Failed to initialize Kinetic Light Client")?;
+    if !crate::api::daemon::NETWORK_CLIENT.initialized() {
+        return Err(anyhow::anyhow!("Kinetic Light Client is not initialized"));
+    }
         
     static HAS_BOOTSTRAPPED_ID: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
     HAS_BOOTSTRAPPED_ID.get_or_init(|| async {

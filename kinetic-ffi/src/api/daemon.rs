@@ -43,24 +43,14 @@ pub fn get_bridge_token() -> String {
 
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
-pub async fn init_light_client() -> Result<()> {
+pub async fn init_light_client(app_dir: String, identity_bytes: Option<Vec<u8>>) -> Result<Option<Vec<u8>>> {
     if NETWORK_CLIENT.initialized() {
-        return Ok(());
+        return Ok(None);
     }
 
-    let mut base_tmp = std::path::PathBuf::new();
-    let paths = [
-        "/data/user/0/dev.saifmukhtar.kinetic/app_flutter",
-        "/data/data/dev.saifmukhtar.kinetic/app_flutter",
-        "/data/user/0/dev.saifmukhtar.kinetic/cache",
-        "/data/data/dev.saifmukhtar.kinetic/cache"
-    ];
-    for p in paths.iter() {
-        let path = std::path::PathBuf::from(p);
-        if std::fs::create_dir_all(&path).is_ok() {
-            base_tmp = path;
-            break;
-        }
+    let base_tmp = std::path::PathBuf::from(&app_dir);
+    if base_tmp.as_os_str().is_empty() {
+        return Err(anyhow::anyhow!("Invalid app directory provided"));
     }
 
     let storage_dir = base_tmp.join("kinetic_light_storage");
@@ -69,8 +59,8 @@ pub async fn init_light_client() -> Result<()> {
 
     let current_round = fetch_latest_drand().await;
 
-    let identity_path = base_tmp.join("kinetic_identity.bin");
-    let local_key = if let Ok(bytes) = std::fs::read(&identity_path) {
+    let mut new_identity_bytes = None;
+    let local_key = if let Some(bytes) = identity_bytes {
         if let Ok(key) = libp2p::identity::Keypair::from_protobuf_encoding(&bytes) {
             let peer_id = key.public().to_peer_id();
             if kinetic_network::pow::is_valid_sybil_pow(&peer_id, current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS) {
@@ -78,17 +68,17 @@ pub async fn init_light_client() -> Result<()> {
             } else {
                 tracing::info!("Cached PoW identity expired for current epoch. Mining a new one...");
                 let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
-                let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+                new_identity_bytes = Some(k.to_protobuf_encoding().unwrap());
                 k
             }
         } else {
             let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
-            let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+            new_identity_bytes = Some(k.to_protobuf_encoding().unwrap());
             k
         }
     } else {
         let k = kinetic_network::pow::mine_sybil_keypair(current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS);
-        let _ = std::fs::write(&identity_path, k.to_protobuf_encoding().unwrap());
+        new_identity_bytes = Some(k.to_protobuf_encoding().unwrap());
         k
     };
 
@@ -146,7 +136,7 @@ pub async fn init_light_client() -> Result<()> {
         }
     });
 
-    Ok(())
+    Ok(new_identity_bytes)
 }
 
 /// Returns the local HTTP port for a given peer, spawning a transport bridge
@@ -221,12 +211,8 @@ pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId, fqdn:
 
 /// Backward-compatible alias — `frb_generated.rs` was code-generated calling this name.
 /// It delegates to `init_light_client()` which is the canonical function.
-pub async fn init_daemon(bootstrap_nodes: Vec<String>) -> anyhow::Result<()> {
-    // The bootstrap_nodes argument is ignored — we always use the production
-    // bootstrap list from `bootstrap.rs`. This signature is kept to avoid
-    // needing to regenerate the flutter_rust_bridge bindings.
-    let _ = bootstrap_nodes;
-    init_light_client().await
+pub async fn init_daemon(app_dir: String, identity_bytes: Option<Vec<u8>>) -> anyhow::Result<Option<Vec<u8>>> {
+    init_light_client(app_dir, identity_bytes).await
 }
 
 /// Proxies an incoming HTTP request from the WebView to the target peer
@@ -244,17 +230,35 @@ async fn handle_bridge_request(
 
     let token = BRIDGE_TOKEN.get().cloned().unwrap_or_default();
     let mut is_authorized = false;
+
+    let parsed_url = url::Url::parse(&format!("http://localhost{}", path))
+        .unwrap_or_else(|_| url::Url::parse("http://localhost/").unwrap());
     
-    if let Some(cookie) = req.headers().get(axum::http::header::COOKIE) {
-        if cookie.to_str().unwrap_or("").contains(&format!("bridge_token={}", token)) {
+    let mut cleaned_query = Vec::new();
+    for (k, v) in parsed_url.query_pairs() {
+        if k == "bridge_token" && v == token {
             is_authorized = true;
+        } else if k != "bridge_token" {
+            cleaned_query.push((k.into_owned(), v.into_owned()));
+        }
+    }
+
+    let mut cleaned_cookies = Vec::new();
+    if let Some(cookie) = req.headers().get(axum::http::header::COOKIE) {
+        if let Ok(cookie_str) = cookie.to_str() {
+            for part in cookie_str.split(';') {
+                let part = part.trim();
+                if part.starts_with("bridge_token=") {
+                    if part == format!("bridge_token={}", token) {
+                        is_authorized = true;
+                    }
+                } else if !part.is_empty() {
+                    cleaned_cookies.push(part.to_string());
+                }
+            }
         }
     }
     
-    if !is_authorized && path.contains(&format!("bridge_token={}", token)) {
-        is_authorized = true;
-    }
-
     if !is_authorized {
         return Ok(Response::builder()
             .status(StatusCode::UNAUTHORIZED)
@@ -262,11 +266,26 @@ async fn handle_bridge_request(
             .unwrap());
     }
 
+    let mut safe_url = parsed_url.clone();
+    safe_url.set_query(None);
+    if !cleaned_query.is_empty() {
+        let mut query_ser = url::form_urlencoded::Serializer::new(String::new());
+        for (k, v) in &cleaned_query {
+            query_ser.append_pair(k, v);
+        }
+        safe_url.set_query(Some(&query_ser.finish()));
+    }
+    let safe_path = safe_url[url::Position::BeforePath..].to_string();
+
     let mut headers = HashMap::new();
     for (name, value) in req.headers() {
         if let Ok(val_str) = value.to_str() {
             if name.as_str().eq_ignore_ascii_case("host") {
                 headers.insert("host".to_string(), fqdn.clone());
+            } else if name.as_str().eq_ignore_ascii_case("cookie") {
+                if !cleaned_cookies.is_empty() {
+                    headers.insert("cookie".to_string(), cleaned_cookies.join("; "));
+                }
             } else {
                 headers.insert(name.as_str().to_string(), val_str.to_string());
             }
@@ -280,7 +299,7 @@ async fn handle_bridge_request(
 
     let proxy_req = kinetic_network::ProxyRequest {
         method,
-        path,
+        path: safe_path,
         headers,
         body: body_bytes,
     };
@@ -300,13 +319,6 @@ async fn handle_bridge_request(
     builder = builder.header(
         axum::http::header::SET_COOKIE,
         format!("bridge_token={}; Path=/; HttpOnly; SameSite=Strict", token)
-    );
-    
-    // Mitigate Sandbox Escape (Edge Case 81): Prevent malicious .kin sites
-    // from port-scanning localhost or the LAN.
-    builder = builder.header(
-        "Content-Security-Policy",
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; connect-src 'self' wss:; frame-src 'none'; object-src 'none';"
     );
 
     let body = axum::body::Body::from(proxy_resp.body);

@@ -1,7 +1,11 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:kinetic/src/rust/frb_generated.dart';
 import 'package:kinetic/src/rust/api/daemon.dart';
+import 'package:path_provider/path_provider.dart';
 
 enum DaemonStatus { stopped, starting, running, error }
 
@@ -53,7 +57,20 @@ class DaemonNotifier extends Notifier<DaemonState> with WidgetsBindingObserver {
         await RustLib.init();
         _isInitialized = true;
       }
-      await initDaemon(bootstrapNodes: []);
+      final appDir = await getApplicationDocumentsDirectory();
+      const storage = FlutterSecureStorage();
+      final identityString = await storage.read(key: 'kinetic_identity');
+      Uint8List? identityBytes;
+      if (identityString != null) {
+        try {
+          identityBytes = base64Decode(identityString);
+        } catch (_) {}
+      }
+      
+      final newIdentityBytes = await initDaemon(appDir: appDir.path, identityBytes: identityBytes);
+      if (newIdentityBytes != null) {
+        await storage.write(key: 'kinetic_identity', value: base64Encode(newIdentityBytes));
+      }
       state = state.copyWith(status: DaemonStatus.running, errorMessage: null);
     } catch (e) {
       state = state.copyWith(

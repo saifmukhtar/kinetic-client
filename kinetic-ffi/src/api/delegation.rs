@@ -133,18 +133,19 @@ pub async fn prepare_vdf_request_nostr(
     }
 
     let req = VdfJobRequest {
-        challenge_hash,
+        challenge_hash: challenge_hash,
         name_length: len as u8,
         hashcash_nonce: nonce,
         drand_pulse: round,
+        pin: None,
     };
 
     let req_json = serde_json::to_string(&req)?;
     let encrypted_content = nip04::encrypt(keys.secret_key(), &desktop_pubkey, req_json)?;
     
     // Edge Cases 164 & 169: Use Drand round to calculate exact current time to prevent clock skew relay rejections
-    // Drand mainnet genesis is 1595431050, round interval is 30s
-    let drand_timestamp = 1595431050 + (round * 30);
+    // Drand mainnet genesis is 1595431050,    // Kinetic uses Quicknet params, not Mainnet.
+    let drand_timestamp = 1692803367 + (round * 3);
     let timestamp = Timestamp::from(drand_timestamp as u64);
     
     let event = EventBuilder::new(Kind::EncryptedDirectMessage, encrypted_content, [Tag::public_key(desktop_pubkey)])
@@ -179,6 +180,9 @@ pub fn decrypt_vdf_proof_nostr(
     
     let proof_json: serde_json::Value = serde_json::from_str(&decrypted)?;
     if let Some(proof_hex) = proof_json["proof_bytes"].as_str() {
+        if proof_hex.len() > 1024 {
+            return Err(anyhow::anyhow!("VDF proof string exceeds maximum allowed length"));
+        }
         let proof_bytes = hex::decode(proof_hex)?;
         return Ok(proof_bytes);
     }

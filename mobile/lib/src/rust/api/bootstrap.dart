@@ -6,10 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            
-
-            /// Bootstrap configuration for the Kinetic Light Client.
+/// Bootstrap configuration for the Kinetic Light Client.
 ///
 /// This module is the single source of truth for how the mobile client
 /// discovers the Kinetic network. It mirrors the bootstrap strategy used
@@ -23,12 +20,14 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// DNS seed discovery will find the new nodes automatically.
 /// Returns the hardcoded production bootstrap nodes.
 /// These are the same multiaddrs as in `kinetic-daemon/src/config.rs`.
-Future<List<String>>  productionBootstrapNodes() => RustLib.instance.api.crateApiBootstrapProductionBootstrapNodes();
+Future<List<String>> productionBootstrapNodes() =>
+    RustLib.instance.api.crateApiBootstrapProductionBootstrapNodes();
 
 /// Returns the Web2 DNS seed domains.
 /// The network layer resolves these to multiaddrs via DNS TXT records
 /// (same as `kinetic-daemon`'s `seed_domains` config field).
-Future<List<String>>  seedDomains() => RustLib.instance.api.crateApiBootstrapSeedDomains();
+Future<List<String>> seedDomains() =>
+    RustLib.instance.api.crateApiBootstrapSeedDomains();
 
 /// Returns all bootstrap nodes — hardcoded IPs plus any discovered via DNS.
 /// This is the function used by `daemon.rs` when initializing the light client.
@@ -36,7 +35,5 @@ Future<List<String>>  seedDomains() => RustLib.instance.api.crateApiBootstrapSee
 /// DNS resolution is handled by the `kinetic-network` event loop itself
 /// (it reads `seed_domains` from `NetworkConfig`), so we just return both
 /// lists here for config construction.
-Future<(List<String>,List<String>)>  allBootstrapNodes() => RustLib.instance.api.crateApiBootstrapAllBootstrapNodes();
-
-            
-            
+Future<(List<String>, List<String>)> allBootstrapNodes() =>
+    RustLib.instance.api.crateApiBootstrapAllBootstrapNodes();

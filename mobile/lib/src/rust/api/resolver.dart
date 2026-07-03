@@ -6,47 +6,41 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
 
-            // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `fmt`
-
-
-            /// Resolves a `kin://` URL to a local transport bridge URL that the WebView can load.
+/// Resolves a `kin://` URL to a local transport bridge URL that the WebView can load.
 ///
 /// Resolution steps:
 ///   1. Normalize the input (strip `kin://`, handle bare names like `saif`)
 ///   2. If it's a bare name, query the Kademlia DHT to find the `PeerId` record
 ///   3. Spawn (or reuse) a local HTTP transport bridge for that `PeerId`
 ///   4. Return `http://127.0.0.1:<port>` as the target URL for the WebView
-Future<ResolvedKinDocument>  resolveKinUrl({required String kinUrl }) => RustLib.instance.api.crateApiResolverResolveKinUrl(kinUrl: kinUrl);
+Future<ResolvedKinDocument> resolveKinUrl({required String kinUrl}) =>
+    RustLib.instance.api.crateApiResolverResolveKinUrl(kinUrl: kinUrl);
 
 /// Looks up the identity details of a `kin://` URL without requiring a `PeerId` routing record.
-Future<ResolvedKinDocument>  lookupIdentity({required String kinUrl }) => RustLib.instance.api.crateApiResolverLookupIdentity(kinUrl: kinUrl);
+Future<ResolvedKinDocument> lookupIdentity({required String kinUrl}) =>
+    RustLib.instance.api.crateApiResolverLookupIdentity(kinUrl: kinUrl);
 
-            /// (Removed local Reveal struct to use kinetic_core::types::Reveal directly)
+/// (Removed local Reveal struct to use kinetic_core::types::Reveal directly)
 /// The result of resolving a `kin://` URL.
-class ResolvedKinDocument  {
-                /// A human-readable JSON summary of the trust state shown in the Trust Sheet.
-final String rawJson;
-/// The `http://127.0.0.1:<port>` URL the WebView should load.
-final String? targetUrl;
+class ResolvedKinDocument {
+  /// A human-readable JSON summary of the trust state shown in the Trust Sheet.
+  final String rawJson;
 
-                const ResolvedKinDocument({required this.rawJson ,this.targetUrl ,});
+  /// The `http://127.0.0.1:<port>` URL the WebView should load.
+  final String? targetUrl;
 
-                
-                
+  const ResolvedKinDocument({required this.rawJson, this.targetUrl});
 
-                
-        @override
-        int get hashCode => rawJson.hashCode^targetUrl.hashCode;
-        
+  @override
+  int get hashCode => rawJson.hashCode ^ targetUrl.hashCode;
 
-                
-        @override
-        bool operator ==(Object other) =>
-            identical(this, other) ||
-            other is ResolvedKinDocument &&
-                runtimeType == other.runtimeType
-                && rawJson == other.rawJson&& targetUrl == other.targetUrl;
-        
-            }
-            
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResolvedKinDocument &&
+          runtimeType == other.runtimeType &&
+          rawJson == other.rawJson &&
+          targetUrl == other.targetUrl;
+}

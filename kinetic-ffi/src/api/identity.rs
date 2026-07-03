@@ -18,10 +18,9 @@ pub struct IdentityInfo {
 ///
 /// This is a read-only operation — it does not create or modify any data.
 pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
-    // Ensure the light client is running before any DHT queries.
-    crate::api::daemon::init_light_client()
-        .await
-        .context("Failed to initialize Kinetic Light Client")?;
+    if !crate::api::daemon::NETWORK_CLIENT.initialized() {
+        return Err(anyhow::anyhow!("Kinetic Light Client is not initialized"));
+    }
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()

@@ -12,868 +12,1232 @@ import 'api/simple.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
-import 'frb_generated.io.dart' if (dart.library.js_interop) 'frb_generated.web.dart';
+import 'frb_generated.io.dart'
+    if (dart.library.js_interop) 'frb_generated.web.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// Main entrypoint of the Rust API
+class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
+  @internal
+  static final instance = RustLib._();
 
-                /// Main entrypoint of the Rust API
-                class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
-                  @internal
-                  static final instance = RustLib._();
+  RustLib._();
 
-                  RustLib._();
+  /// Initialize flutter_rust_bridge
+  static Future<void> init({
+    RustLibApi? api,
+    BaseHandler? handler,
+    ExternalLibrary? externalLibrary,
+    bool forceSameCodegenVersion = true,
+  }) async {
+    await instance.initImpl(
+      api: api,
+      handler: handler,
+      externalLibrary: externalLibrary,
+      forceSameCodegenVersion: forceSameCodegenVersion,
+    );
+  }
 
-                  /// Initialize flutter_rust_bridge
-                  static Future<void> init({
-                    RustLibApi? api,
-                    BaseHandler? handler,
-                    ExternalLibrary? externalLibrary,
-                    bool forceSameCodegenVersion = true,
-                  }) async {
-                    await instance.initImpl(
-                      api: api,
-                      handler: handler,
-                      externalLibrary: externalLibrary,
-                      forceSameCodegenVersion: forceSameCodegenVersion,
-                    );
-                  }
+  /// Initialize flutter_rust_bridge in mock mode.
+  /// No libraries for FFI are loaded.
+  static void initMock({required RustLibApi api}) {
+    instance.initMockImpl(api: api);
+  }
 
-                  /// Initialize flutter_rust_bridge in mock mode.
-                  /// No libraries for FFI are loaded.
-                  static void initMock({
-                    required RustLibApi api,
-                  }) {
-                    instance.initMockImpl(
-                      api: api,
-                    );
-                  }
+  /// Dispose flutter_rust_bridge
+  ///
+  /// The call to this function is optional, since flutter_rust_bridge (and everything else)
+  /// is automatically disposed when the app stops.
+  static void dispose() => instance.disposeImpl();
 
-                  /// Dispose flutter_rust_bridge
-                  ///
-                  /// The call to this function is optional, since flutter_rust_bridge (and everything else)
-                  /// is automatically disposed when the app stops.
-                  static void dispose() => instance.disposeImpl();
+  @override
+  ApiImplConstructor<RustLibApiImpl, RustLibWire> get apiImplConstructor =>
+      RustLibApiImpl.new;
 
-                  @override
-                  ApiImplConstructor<RustLibApiImpl, RustLibWire> get apiImplConstructor => RustLibApiImpl.new;
+  @override
+  WireConstructor<RustLibWire> get wireConstructor =>
+      RustLibWire.fromExternalLibrary;
 
-                  @override
-                  WireConstructor<RustLibWire> get wireConstructor => RustLibWire.fromExternalLibrary;
+  @override
+  Future<void> executeRustInitializers() async {
+    await api.crateApiSimpleInitApp();
+  }
 
-                  @override
-                  Future<void> executeRustInitializers() async {
-                    await api.crateApiSimpleInitApp();
+  @override
+  ExternalLibraryLoaderConfig get defaultExternalLibraryLoaderConfig =>
+      kDefaultExternalLibraryLoaderConfig;
 
-                  }
+  @override
+  String get codegenVersion => '2.12.0';
 
-                  @override
-                  ExternalLibraryLoaderConfig get defaultExternalLibraryLoaderConfig => kDefaultExternalLibraryLoaderConfig;
+  @override
+  int get rustContentHash => 782478774;
 
-                  @override
-                  String get codegenVersion => '2.12.0';
+  static const kDefaultExternalLibraryLoaderConfig =
+      ExternalLibraryLoaderConfig(
+        stem: 'rust_lib_mobile',
+        ioDirectory: '../kinetic-ffi/target/release/',
+        webPrefix: 'pkg/',
+        wasmBindgenName: 'wasm_bindgen',
+      );
+}
 
-                  @override
-                  int get rustContentHash => 782478774;
+abstract class RustLibApi extends BaseApi {
+  Future<(List<String>, List<String>)> crateApiBootstrapAllBootstrapNodes();
 
-                  static const kDefaultExternalLibraryLoaderConfig = ExternalLibraryLoaderConfig(
-                    stem: 'rust_lib_mobile',
-                    ioDirectory: '../kinetic-ffi/target/release/',
-                    webPrefix: 'pkg/',
-                    wasmBindgenName: 'wasm_bindgen',
-                  );
-                }
-                
+  Future<bool> crateApiDelegationBroadcastMobileHeartbeat({
+    required String name,
+    required List<int> privateKeyBytes,
+  });
 
-                abstract class RustLibApi extends BaseApi {
-                  Future<(List<String>,List<String>)> crateApiBootstrapAllBootstrapNodes();
+  Future<bool> crateApiDelegationBroadcastMobileReveal({
+    required String name,
+    required List<int> payload,
+    required List<int> privateKeyBytes,
+    required List<int> vdfProofBytes,
+    required List<int> salt,
+    required BigInt drandPulse,
+    required String drandRandomness,
+  });
 
-Future<bool> crateApiDelegationBroadcastMobileHeartbeat({required String name , required List<int> privateKeyBytes });
+  Future<Uint8List> crateApiDelegationDecryptVdfProofNostr({
+    required String desktopNpub,
+    required List<int> privateKeyBytes,
+    required String encryptedContent,
+  });
 
-Future<bool> crateApiDelegationBroadcastMobileReveal({required String name , required List<int> payload , required List<int> privateKeyBytes , required List<int> vdfProofBytes , required List<int> salt , required BigInt drandPulse , required String drandRandomness });
+  Uint8List crateApiDelegationDerivePublicKeyBytesSync({
+    required List<int> privateKeyBytes,
+  });
 
-Future<Uint8List> crateApiDelegationDecryptVdfProofNostr({required String desktopNpub , required List<int> privateKeyBytes , required String encryptedContent });
+  Future<IdentityInfo> crateApiIdentityFetchIdentity({required String name});
 
-Uint8List crateApiDelegationDerivePublicKeyBytesSync({required List<int> privateKeyBytes });
+  Future<BigInt> crateApiDaemonFetchLatestDrand();
 
-Future<IdentityInfo> crateApiIdentityFetchIdentity({required String name });
+  Future<String> crateApiDaemonGetBridgeToken();
 
-Future<BigInt> crateApiDaemonFetchLatestDrand();
+  String crateApiSimpleGreet({required String name});
 
-Future<String> crateApiDaemonGetBridgeToken();
+  Future<void> crateApiSimpleInitApp();
 
-String crateApiSimpleGreet({required String name });
+  Future<Uint8List?> crateApiDaemonInitDaemon({
+    required String appDir,
+    Uint8List? identityBytes,
+  });
 
-Future<void> crateApiSimpleInitApp();
+  Future<Uint8List?> crateApiDaemonInitLightClient({
+    required String appDir,
+    Uint8List? identityBytes,
+  });
 
-Future<void> crateApiDaemonInitDaemon({required List<String> bootstrapNodes });
+  Future<ResolvedKinDocument> crateApiResolverLookupIdentity({
+    required String kinUrl,
+  });
 
-Future<void> crateApiDaemonInitLightClient();
+  Future<(VdfJobResponse, String)> crateApiDelegationPrepareVdfRequestNostr({
+    required String desktopNpub,
+    required String name,
+    required List<int> privateKeyBytes,
+    required int difficultyBits,
+  });
 
-Future<ResolvedKinDocument> crateApiResolverLookupIdentity({required String kinUrl });
+  Future<List<String>> crateApiBootstrapProductionBootstrapNodes();
 
-Future<(VdfJobResponse,String)> crateApiDelegationPrepareVdfRequestNostr({required String desktopNpub , required String name , required List<int> privateKeyBytes , required int difficultyBits });
+  Future<void> crateApiDaemonReconnectNetwork();
 
-Future<List<String>> crateApiBootstrapProductionBootstrapNodes();
+  Future<ResolvedKinDocument> crateApiResolverResolveKinUrl({
+    required String kinUrl,
+  });
 
-Future<void> crateApiDaemonReconnectNetwork();
+  Future<List<String>> crateApiBootstrapSeedDomains();
 
-Future<ResolvedKinDocument> crateApiResolverResolveKinUrl({required String kinUrl });
+  Future<void> crateApiDaemonShutdownBridges();
 
-Future<List<String>> crateApiBootstrapSeedDomains();
+  bool crateApiDelegationValidateDelegationName({required String name});
+}
 
-Future<void> crateApiDaemonShutdownBridges();
+class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
+  RustLibApiImpl({
+    required super.handler,
+    required super.wire,
+    required super.generalizedFrbRustBinding,
+    required super.portManager,
+  });
 
-bool crateApiDelegationValidateDelegationName({required String name });
-
-
-                }
-                
-
-                class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
-                  RustLibApiImpl({
-                    required super.handler,
-                    required super.wire,
-                    required super.generalizedFrbRustBinding,
-                    required super.portManager,
-                  });
-
-                  @override Future<(List<String>,List<String>)> crateApiBootstrapAllBootstrapNodes()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 1, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<(List<String>, List<String>)> crateApiBootstrapAllBootstrapNodes() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 1,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_record_list_string_list_string,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiBootstrapAllBootstrapNodesConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiBootstrapAllBootstrapNodesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiBootstrapAllBootstrapNodesConstMeta =>
+      const TaskConstMeta(debugName: "all_bootstrap_nodes", argNames: []);
 
-        TaskConstMeta get kCrateApiBootstrapAllBootstrapNodesConstMeta => const TaskConstMeta(
-            debugName: "all_bootstrap_nodes",
-            argNames: [],
-        );
-        
-
-@override Future<bool> crateApiDelegationBroadcastMobileHeartbeat({required String name , required List<int> privateKeyBytes })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(name, serializer);
-sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 2, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<bool> crateApiDelegationBroadcastMobileHeartbeat({
+    required String name,
+    required List<int> privateKeyBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationBroadcastMobileHeartbeatConstMeta,
-            argValues: [name, privateKeyBytes],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationBroadcastMobileHeartbeatConstMeta,
+        argValues: [name, privateKeyBytes],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationBroadcastMobileHeartbeatConstMeta =>
+      const TaskConstMeta(
+        debugName: "broadcast_mobile_heartbeat",
+        argNames: ["name", "privateKeyBytes"],
+      );
 
-        TaskConstMeta get kCrateApiDelegationBroadcastMobileHeartbeatConstMeta => const TaskConstMeta(
-            debugName: "broadcast_mobile_heartbeat",
-            argNames: ["name", "privateKeyBytes"],
-        );
-        
-
-@override Future<bool> crateApiDelegationBroadcastMobileReveal({required String name , required List<int> payload , required List<int> privateKeyBytes , required List<int> vdfProofBytes , required List<int> salt , required BigInt drandPulse , required String drandRandomness })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(name, serializer);
-sse_encode_list_prim_u_8_loose(payload, serializer);
-sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
-sse_encode_list_prim_u_8_loose(vdfProofBytes, serializer);
-sse_encode_list_prim_u_8_loose(salt, serializer);
-sse_encode_u_64(drandPulse, serializer);
-sse_encode_String(drandRandomness, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 3, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<bool> crateApiDelegationBroadcastMobileReveal({
+    required String name,
+    required List<int> payload,
+    required List<int> privateKeyBytes,
+    required List<int> vdfProofBytes,
+    required List<int> salt,
+    required BigInt drandPulse,
+    required String drandRandomness,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          sse_encode_list_prim_u_8_loose(payload, serializer);
+          sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
+          sse_encode_list_prim_u_8_loose(vdfProofBytes, serializer);
+          sse_encode_list_prim_u_8_loose(salt, serializer);
+          sse_encode_u_64(drandPulse, serializer);
+          sse_encode_String(drandRandomness, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 3,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationBroadcastMobileRevealConstMeta,
-            argValues: [name, payload, privateKeyBytes, vdfProofBytes, salt, drandPulse, drandRandomness],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationBroadcastMobileRevealConstMeta,
+        argValues: [
+          name,
+          payload,
+          privateKeyBytes,
+          vdfProofBytes,
+          salt,
+          drandPulse,
+          drandRandomness,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationBroadcastMobileRevealConstMeta =>
+      const TaskConstMeta(
+        debugName: "broadcast_mobile_reveal",
+        argNames: [
+          "name",
+          "payload",
+          "privateKeyBytes",
+          "vdfProofBytes",
+          "salt",
+          "drandPulse",
+          "drandRandomness",
+        ],
+      );
 
-        TaskConstMeta get kCrateApiDelegationBroadcastMobileRevealConstMeta => const TaskConstMeta(
-            debugName: "broadcast_mobile_reveal",
-            argNames: ["name", "payload", "privateKeyBytes", "vdfProofBytes", "salt", "drandPulse", "drandRandomness"],
-        );
-        
-
-@override Future<Uint8List> crateApiDelegationDecryptVdfProofNostr({required String desktopNpub , required List<int> privateKeyBytes , required String encryptedContent })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(desktopNpub, serializer);
-sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
-sse_encode_String(encryptedContent, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 4, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<Uint8List> crateApiDelegationDecryptVdfProofNostr({
+    required String desktopNpub,
+    required List<int> privateKeyBytes,
+    required String encryptedContent,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(desktopNpub, serializer);
+          sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
+          sse_encode_String(encryptedContent, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 4,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationDecryptVdfProofNostrConstMeta,
-            argValues: [desktopNpub, privateKeyBytes, encryptedContent],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationDecryptVdfProofNostrConstMeta,
+        argValues: [desktopNpub, privateKeyBytes, encryptedContent],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationDecryptVdfProofNostrConstMeta =>
+      const TaskConstMeta(
+        debugName: "decrypt_vdf_proof_nostr",
+        argNames: ["desktopNpub", "privateKeyBytes", "encryptedContent"],
+      );
 
-        TaskConstMeta get kCrateApiDelegationDecryptVdfProofNostrConstMeta => const TaskConstMeta(
-            debugName: "decrypt_vdf_proof_nostr",
-            argNames: ["desktopNpub", "privateKeyBytes", "encryptedContent"],
-        );
-        
-
-@override Uint8List crateApiDelegationDerivePublicKeyBytesSync({required List<int> privateKeyBytes })  { return handler.executeSync(SyncTask(
-            callFfi: () {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
-            return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Uint8List crateApiDelegationDerivePublicKeyBytesSync({
+    required List<int> privateKeyBytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationDerivePublicKeyBytesSyncConstMeta,
-            argValues: [privateKeyBytes],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationDerivePublicKeyBytesSyncConstMeta,
+        argValues: [privateKeyBytes],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationDerivePublicKeyBytesSyncConstMeta =>
+      const TaskConstMeta(
+        debugName: "derive_public_key_bytes_sync",
+        argNames: ["privateKeyBytes"],
+      );
 
-        TaskConstMeta get kCrateApiDelegationDerivePublicKeyBytesSyncConstMeta => const TaskConstMeta(
-            debugName: "derive_public_key_bytes_sync",
-            argNames: ["privateKeyBytes"],
-        );
-        
-
-@override Future<IdentityInfo> crateApiIdentityFetchIdentity({required String name })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(name, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<IdentityInfo> crateApiIdentityFetchIdentity({required String name}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_identity_info,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiIdentityFetchIdentityConstMeta,
-            argValues: [name],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiIdentityFetchIdentityConstMeta,
+        argValues: [name],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiIdentityFetchIdentityConstMeta =>
+      const TaskConstMeta(debugName: "fetch_identity", argNames: ["name"]);
 
-        TaskConstMeta get kCrateApiIdentityFetchIdentityConstMeta => const TaskConstMeta(
-            debugName: "fetch_identity",
-            argNames: ["name"],
-        );
-        
-
-@override Future<BigInt> crateApiDaemonFetchLatestDrand()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<BigInt> crateApiDaemonFetchLatestDrand() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 7,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_u_64,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiDaemonFetchLatestDrandConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonFetchLatestDrandConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonFetchLatestDrandConstMeta =>
+      const TaskConstMeta(debugName: "fetch_latest_drand", argNames: []);
 
-        TaskConstMeta get kCrateApiDaemonFetchLatestDrandConstMeta => const TaskConstMeta(
-            debugName: "fetch_latest_drand",
-            argNames: [],
-        );
-        
-
-@override Future<String> crateApiDaemonGetBridgeToken()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<String> crateApiDaemonGetBridgeToken() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 8,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_String,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiDaemonGetBridgeTokenConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonGetBridgeTokenConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonGetBridgeTokenConstMeta =>
+      const TaskConstMeta(debugName: "get_bridge_token", argNames: []);
 
-        TaskConstMeta get kCrateApiDaemonGetBridgeTokenConstMeta => const TaskConstMeta(
-            debugName: "get_bridge_token",
-            argNames: [],
-        );
-        
-
-@override String crateApiSimpleGreet({required String name })  { return handler.executeSync(SyncTask(
-            callFfi: () {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(name, serializer);
-            return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  String crateApiSimpleGreet({required String name}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_String,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiSimpleGreetConstMeta,
-            argValues: [name],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiSimpleGreetConstMeta,
+        argValues: [name],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiSimpleGreetConstMeta =>
+      const TaskConstMeta(debugName: "greet", argNames: ["name"]);
 
-        TaskConstMeta get kCrateApiSimpleGreetConstMeta => const TaskConstMeta(
-            debugName: "greet",
-            argNames: ["name"],
-        );
-        
-
-@override Future<void> crateApiSimpleInitApp()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<void> crateApiSimpleInitApp() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiSimpleInitAppConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiSimpleInitAppConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiSimpleInitAppConstMeta =>
+      const TaskConstMeta(debugName: "init_app", argNames: []);
 
-        TaskConstMeta get kCrateApiSimpleInitAppConstMeta => const TaskConstMeta(
-            debugName: "init_app",
-            argNames: [],
-        );
-        
-
-@override Future<void> crateApiDaemonInitDaemon({required List<String> bootstrapNodes })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_list_String(bootstrapNodes, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
-          decodeSuccessData: sse_decode_unit,
+  @override
+  Future<Uint8List?> crateApiDaemonInitDaemon({
+    required String appDir,
+    Uint8List? identityBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(appDir, serializer);
+          sse_encode_opt_list_prim_u_8_strict(identityBytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 11,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_list_prim_u_8_strict,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDaemonInitDaemonConstMeta,
-            argValues: [bootstrapNodes],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonInitDaemonConstMeta,
+        argValues: [appDir, identityBytes],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonInitDaemonConstMeta => const TaskConstMeta(
+    debugName: "init_daemon",
+    argNames: ["appDir", "identityBytes"],
+  );
 
-        TaskConstMeta get kCrateApiDaemonInitDaemonConstMeta => const TaskConstMeta(
-            debugName: "init_daemon",
-            argNames: ["bootstrapNodes"],
-        );
-        
-
-@override Future<void> crateApiDaemonInitLightClient()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
-          decodeSuccessData: sse_decode_unit,
+  @override
+  Future<Uint8List?> crateApiDaemonInitLightClient({
+    required String appDir,
+    Uint8List? identityBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(appDir, serializer);
+          sse_encode_opt_list_prim_u_8_strict(identityBytes, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 12,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_opt_list_prim_u_8_strict,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDaemonInitLightClientConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonInitLightClientConstMeta,
+        argValues: [appDir, identityBytes],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonInitLightClientConstMeta =>
+      const TaskConstMeta(
+        debugName: "init_light_client",
+        argNames: ["appDir", "identityBytes"],
+      );
 
-        TaskConstMeta get kCrateApiDaemonInitLightClientConstMeta => const TaskConstMeta(
-            debugName: "init_light_client",
-            argNames: [],
-        );
-        
-
-@override Future<ResolvedKinDocument> crateApiResolverLookupIdentity({required String kinUrl })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(kinUrl, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<ResolvedKinDocument> crateApiResolverLookupIdentity({
+    required String kinUrl,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(kinUrl, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 13,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_resolved_kin_document,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiResolverLookupIdentityConstMeta,
-            argValues: [kinUrl],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiResolverLookupIdentityConstMeta,
+        argValues: [kinUrl],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiResolverLookupIdentityConstMeta =>
+      const TaskConstMeta(debugName: "lookup_identity", argNames: ["kinUrl"]);
 
-        TaskConstMeta get kCrateApiResolverLookupIdentityConstMeta => const TaskConstMeta(
-            debugName: "lookup_identity",
-            argNames: ["kinUrl"],
-        );
-        
-
-@override Future<(VdfJobResponse,String)> crateApiDelegationPrepareVdfRequestNostr({required String desktopNpub , required String name , required List<int> privateKeyBytes , required int difficultyBits })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(desktopNpub, serializer);
-sse_encode_String(name, serializer);
-sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
-sse_encode_u_32(difficultyBits, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<(VdfJobResponse, String)> crateApiDelegationPrepareVdfRequestNostr({
+    required String desktopNpub,
+    required String name,
+    required List<int> privateKeyBytes,
+    required int difficultyBits,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(desktopNpub, serializer);
+          sse_encode_String(name, serializer);
+          sse_encode_list_prim_u_8_loose(privateKeyBytes, serializer);
+          sse_encode_u_32(difficultyBits, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_record_vdf_job_response_string,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationPrepareVdfRequestNostrConstMeta,
-            argValues: [desktopNpub, name, privateKeyBytes, difficultyBits],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationPrepareVdfRequestNostrConstMeta,
+        argValues: [desktopNpub, name, privateKeyBytes, difficultyBits],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationPrepareVdfRequestNostrConstMeta =>
+      const TaskConstMeta(
+        debugName: "prepare_vdf_request_nostr",
+        argNames: ["desktopNpub", "name", "privateKeyBytes", "difficultyBits"],
+      );
 
-        TaskConstMeta get kCrateApiDelegationPrepareVdfRequestNostrConstMeta => const TaskConstMeta(
-            debugName: "prepare_vdf_request_nostr",
-            argNames: ["desktopNpub", "name", "privateKeyBytes", "difficultyBits"],
-        );
-        
-
-@override Future<List<String>> crateApiBootstrapProductionBootstrapNodes()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<List<String>> crateApiBootstrapProductionBootstrapNodes() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 15,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_list_String,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiBootstrapProductionBootstrapNodesConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiBootstrapProductionBootstrapNodesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiBootstrapProductionBootstrapNodesConstMeta =>
+      const TaskConstMeta(
+        debugName: "production_bootstrap_nodes",
+        argNames: [],
+      );
 
-        TaskConstMeta get kCrateApiBootstrapProductionBootstrapNodesConstMeta => const TaskConstMeta(
-            debugName: "production_bootstrap_nodes",
-            argNames: [],
-        );
-        
-
-@override Future<void> crateApiDaemonReconnectNetwork()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<void> crateApiDaemonReconnectNetwork() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDaemonReconnectNetworkConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonReconnectNetworkConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonReconnectNetworkConstMeta =>
+      const TaskConstMeta(debugName: "reconnect_network", argNames: []);
 
-        TaskConstMeta get kCrateApiDaemonReconnectNetworkConstMeta => const TaskConstMeta(
-            debugName: "reconnect_network",
-            argNames: [],
-        );
-        
-
-@override Future<ResolvedKinDocument> crateApiResolverResolveKinUrl({required String kinUrl })  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(kinUrl, serializer);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<ResolvedKinDocument> crateApiResolverResolveKinUrl({
+    required String kinUrl,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(kinUrl, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_resolved_kin_document,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiResolverResolveKinUrlConstMeta,
-            argValues: [kinUrl],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiResolverResolveKinUrlConstMeta,
+        argValues: [kinUrl],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiResolverResolveKinUrlConstMeta =>
+      const TaskConstMeta(debugName: "resolve_kin_url", argNames: ["kinUrl"]);
 
-        TaskConstMeta get kCrateApiResolverResolveKinUrlConstMeta => const TaskConstMeta(
-            debugName: "resolve_kin_url",
-            argNames: ["kinUrl"],
-        );
-        
-
-@override Future<List<String>> crateApiBootstrapSeedDomains()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<List<String>> crateApiBootstrapSeedDomains() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_list_String,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiBootstrapSeedDomainsConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiBootstrapSeedDomainsConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiBootstrapSeedDomainsConstMeta =>
+      const TaskConstMeta(debugName: "seed_domains", argNames: []);
 
-        TaskConstMeta get kCrateApiBootstrapSeedDomainsConstMeta => const TaskConstMeta(
-            debugName: "seed_domains",
-            argNames: [],
-        );
-        
-
-@override Future<void> crateApiDaemonShutdownBridges()  { return handler.executeNormal(NormalTask(
-            callFfi: (port_) {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);
-            pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19, port: port_);
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  Future<void> crateApiDaemonShutdownBridges() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 19,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: null,
-        )
-        ,
-            constMeta: kCrateApiDaemonShutdownBridgesConstMeta,
-            argValues: [],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDaemonShutdownBridgesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDaemonShutdownBridgesConstMeta =>
+      const TaskConstMeta(debugName: "shutdown_bridges", argNames: []);
 
-        TaskConstMeta get kCrateApiDaemonShutdownBridgesConstMeta => const TaskConstMeta(
-            debugName: "shutdown_bridges",
-            argNames: [],
-        );
-        
-
-@override bool crateApiDelegationValidateDelegationName({required String name })  { return handler.executeSync(SyncTask(
-            callFfi: () {
-              
-            final serializer = SseSerializer(generalizedFrbRustBinding);sse_encode_String(name, serializer);
-            return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
-            
-            },
-            codec: 
-        SseCodec(
+  @override
+  bool crateApiDelegationValidateDelegationName({required String name}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(name, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
+        },
+        codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
           decodeErrorData: sse_decode_AnyhowException,
-        )
-        ,
-            constMeta: kCrateApiDelegationValidateDelegationNameConstMeta,
-            argValues: [name],
-            apiImpl: this,
-        )); }
+        ),
+        constMeta: kCrateApiDelegationValidateDelegationNameConstMeta,
+        argValues: [name],
+        apiImpl: this,
+      ),
+    );
+  }
 
+  TaskConstMeta get kCrateApiDelegationValidateDelegationNameConstMeta =>
+      const TaskConstMeta(
+        debugName: "validate_delegation_name",
+        argNames: ["name"],
+      );
 
-        TaskConstMeta get kCrateApiDelegationValidateDelegationNameConstMeta => const TaskConstMeta(
-            debugName: "validate_delegation_name",
-            argNames: ["name"],
-        );
-        
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return AnyhowException(raw as String);
+  }
 
+  @protected
+  String dco_decode_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as String;
+  }
 
+  @protected
+  bool dco_decode_bool(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as bool;
+  }
 
-                  @protected AnyhowException dco_decode_AnyhowException(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return AnyhowException(raw as String); }
+  @protected
+  IdentityInfo dco_decode_identity_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return IdentityInfo(
+      name: dco_decode_String(arr[0]),
+      peerId: dco_decode_String(arr[1]),
+      isActive: dco_decode_bool(arr[2]),
+      statusNote: dco_decode_String(arr[3]),
+    );
+  }
 
-@protected String dco_decode_String(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as String; }
+  @protected
+  List<String> dco_decode_list_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
 
-@protected bool dco_decode_bool(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as bool; }
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
+  }
 
-@protected IdentityInfo dco_decode_identity_info(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-final arr = raw as List<dynamic>;
-                if (arr.length != 4) throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
-                return IdentityInfo(name: dco_decode_String(arr[0]),
-peerId: dco_decode_String(arr[1]),
-isActive: dco_decode_bool(arr[2]),
-statusNote: dco_decode_String(arr[3]),); }
+  @protected
+  Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint8List;
+  }
 
-@protected List<String> dco_decode_list_String(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return (raw as List<dynamic>).map(dco_decode_String).toList(); }
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
 
-@protected List<int> dco_decode_list_prim_u_8_loose(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as List<int>; }
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_prim_u_8_strict(raw);
+  }
 
-@protected Uint8List dco_decode_list_prim_u_8_strict(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as Uint8List; }
+  @protected
+  (List<String>, List<String>) dco_decode_record_list_string_list_string(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_list_String(arr[0]), dco_decode_list_String(arr[1]));
+  }
 
-@protected String? dco_decode_opt_String(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw == null ? null : dco_decode_String(raw); }
+  @protected
+  (VdfJobResponse, String) dco_decode_record_vdf_job_response_string(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2) {
+      throw Exception('Expected 2 elements, got ${arr.length}');
+    }
+    return (dco_decode_vdf_job_response(arr[0]), dco_decode_String(arr[1]));
+  }
 
-@protected (List<String>,List<String>) dco_decode_record_list_string_list_string(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-final arr = raw as List<dynamic>;
-            if (arr.length != 2) {
-                throw Exception('Expected 2 elements, got ${arr.length}');
-            }
-            return (dco_decode_list_String(arr[0]),dco_decode_list_String(arr[1]),); }
+  @protected
+  ResolvedKinDocument dco_decode_resolved_kin_document(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ResolvedKinDocument(
+      rawJson: dco_decode_String(arr[0]),
+      targetUrl: dco_decode_opt_String(arr[1]),
+    );
+  }
 
-@protected (VdfJobResponse,String) dco_decode_record_vdf_job_response_string(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-final arr = raw as List<dynamic>;
-            if (arr.length != 2) {
-                throw Exception('Expected 2 elements, got ${arr.length}');
-            }
-            return (dco_decode_vdf_job_response(arr[0]),dco_decode_String(arr[1]),); }
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
 
-@protected ResolvedKinDocument dco_decode_resolved_kin_document(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-final arr = raw as List<dynamic>;
-                if (arr.length != 2) throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
-                return ResolvedKinDocument(rawJson: dco_decode_String(arr[0]),
-targetUrl: dco_decode_opt_String(arr[1]),); }
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
+  }
 
-@protected int dco_decode_u_32(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as int; }
+  @protected
+  int dco_decode_u_8(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
 
-@protected BigInt dco_decode_u_64(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return dcoDecodeU64(raw); }
+  @protected
+  void dco_decode_unit(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return;
+  }
 
-@protected int dco_decode_u_8(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return raw as int; }
+  @protected
+  VdfJobResponse dco_decode_vdf_job_response(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return VdfJobResponse(
+      challengeHex: dco_decode_String(arr[0]),
+      salt: dco_decode_list_prim_u_8_strict(arr[1]),
+      drandPulse: dco_decode_u_64(arr[2]),
+      drandRandomness: dco_decode_String(arr[3]),
+      iterations: dco_decode_u_64(arr[4]),
+    );
+  }
 
-@protected void dco_decode_unit(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-return; }
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_String(deserializer);
+    return AnyhowException(inner);
+  }
 
-@protected VdfJobResponse dco_decode_vdf_job_response(dynamic raw){ // Codec=Dco (DartCObject based), see doc to use other codecs
-final arr = raw as List<dynamic>;
-                if (arr.length != 5) throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
-                return VdfJobResponse(challengeHex: dco_decode_String(arr[0]),
-salt: dco_decode_list_prim_u_8_strict(arr[1]),
-drandPulse: dco_decode_u_64(arr[2]),
-drandRandomness: dco_decode_String(arr[3]),
-iterations: dco_decode_u_64(arr[4]),); }
+  @protected
+  String sse_decode_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_list_prim_u_8_strict(deserializer);
+    return utf8.decoder.convert(inner);
+  }
 
-@protected AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var inner = sse_decode_String(deserializer);
-        return AnyhowException(inner); }
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8() != 0;
+  }
 
-@protected String sse_decode_String(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var inner = sse_decode_list_prim_u_8_strict(deserializer);
-        return utf8.decoder.convert(inner); }
+  @protected
+  IdentityInfo sse_decode_identity_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_name = sse_decode_String(deserializer);
+    var var_peerId = sse_decode_String(deserializer);
+    var var_isActive = sse_decode_bool(deserializer);
+    var var_statusNote = sse_decode_String(deserializer);
+    return IdentityInfo(
+      name: var_name,
+      peerId: var_peerId,
+      isActive: var_isActive,
+      statusNote: var_statusNote,
+    );
+  }
 
-@protected bool sse_decode_bool(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-return deserializer.buffer.getUint8() != 0; }
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
 
-@protected IdentityInfo sse_decode_identity_info(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var var_name = sse_decode_String(deserializer);
-var var_peerId = sse_decode_String(deserializer);
-var var_isActive = sse_decode_bool(deserializer);
-var var_statusNote = sse_decode_String(deserializer);
-return IdentityInfo(name: var_name, peerId: var_peerId, isActive: var_isActive, statusNote: var_statusNote); }
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <String>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
 
-@protected List<String> sse_decode_list_String(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
+  }
 
-        var len_ = sse_decode_i_32(deserializer);
-        var ans_ = <String>[];
-        for (var idx_ = 0; idx_ < len_; ++idx_) { ans_.add(sse_decode_String(deserializer)); }
-        return ans_;
-         }
+  @protected
+  Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
+  }
 
-@protected List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var len_ = sse_decode_i_32(deserializer);
-                return deserializer.buffer.getUint8List(len_); }
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
 
-@protected Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var len_ = sse_decode_i_32(deserializer);
-                return deserializer.buffer.getUint8List(len_); }
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
 
-@protected String? sse_decode_opt_String(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
 
-            if (sse_decode_bool(deserializer)) {
-                return (sse_decode_String(deserializer));
-            } else {
-                return null;
-            }
-             }
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_prim_u_8_strict(deserializer));
+    } else {
+      return null;
+    }
+  }
 
-@protected (List<String>,List<String>) sse_decode_record_list_string_list_string(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var var_field0 = sse_decode_list_String(deserializer);
-var var_field1 = sse_decode_list_String(deserializer);
-return (var_field0, var_field1); }
+  @protected
+  (List<String>, List<String>) sse_decode_record_list_string_list_string(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_list_String(deserializer);
+    var var_field1 = sse_decode_list_String(deserializer);
+    return (var_field0, var_field1);
+  }
 
-@protected (VdfJobResponse,String) sse_decode_record_vdf_job_response_string(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var var_field0 = sse_decode_vdf_job_response(deserializer);
-var var_field1 = sse_decode_String(deserializer);
-return (var_field0, var_field1); }
+  @protected
+  (VdfJobResponse, String) sse_decode_record_vdf_job_response_string(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_vdf_job_response(deserializer);
+    var var_field1 = sse_decode_String(deserializer);
+    return (var_field0, var_field1);
+  }
 
-@protected ResolvedKinDocument sse_decode_resolved_kin_document(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var var_rawJson = sse_decode_String(deserializer);
-var var_targetUrl = sse_decode_opt_String(deserializer);
-return ResolvedKinDocument(rawJson: var_rawJson, targetUrl: var_targetUrl); }
+  @protected
+  ResolvedKinDocument sse_decode_resolved_kin_document(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_rawJson = sse_decode_String(deserializer);
+    var var_targetUrl = sse_decode_opt_String(deserializer);
+    return ResolvedKinDocument(rawJson: var_rawJson, targetUrl: var_targetUrl);
+  }
 
-@protected int sse_decode_u_32(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-return deserializer.buffer.getUint32(); }
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
 
-@protected BigInt sse_decode_u_64(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-return deserializer.buffer.getBigUint64(); }
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
+  }
 
-@protected int sse_decode_u_8(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-return deserializer.buffer.getUint8(); }
+  @protected
+  int sse_decode_u_8(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint8();
+  }
 
-@protected void sse_decode_unit(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
- }
+  @protected
+  void sse_decode_unit(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+  }
 
-@protected VdfJobResponse sse_decode_vdf_job_response(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-var var_challengeHex = sse_decode_String(deserializer);
-var var_salt = sse_decode_list_prim_u_8_strict(deserializer);
-var var_drandPulse = sse_decode_u_64(deserializer);
-var var_drandRandomness = sse_decode_String(deserializer);
-var var_iterations = sse_decode_u_64(deserializer);
-return VdfJobResponse(challengeHex: var_challengeHex, salt: var_salt, drandPulse: var_drandPulse, drandRandomness: var_drandRandomness, iterations: var_iterations); }
+  @protected
+  VdfJobResponse sse_decode_vdf_job_response(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_challengeHex = sse_decode_String(deserializer);
+    var var_salt = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_drandPulse = sse_decode_u_64(deserializer);
+    var var_drandRandomness = sse_decode_String(deserializer);
+    var var_iterations = sse_decode_u_64(deserializer);
+    return VdfJobResponse(
+      challengeHex: var_challengeHex,
+      salt: var_salt,
+      drandPulse: var_drandPulse,
+      drandRandomness: var_drandRandomness,
+      iterations: var_iterations,
+    );
+  }
 
-@protected int sse_decode_i_32(SseDeserializer deserializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-return deserializer.buffer.getInt32(); }
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
 
-@protected void sse_encode_AnyhowException(AnyhowException self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_String(self.message, serializer); }
+  @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.message, serializer);
+  }
 
-@protected void sse_encode_String(String self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer); }
+  @protected
+  void sse_encode_String(String self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
+  }
 
-@protected void sse_encode_bool(bool self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-serializer.buffer.putUint8(self ? 1 : 0); }
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self ? 1 : 0);
+  }
 
-@protected void sse_encode_identity_info(IdentityInfo self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_String(self.name, serializer);
-sse_encode_String(self.peerId, serializer);
-sse_encode_bool(self.isActive, serializer);
-sse_encode_String(self.statusNote, serializer);
- }
+  @protected
+  void sse_encode_identity_info(IdentityInfo self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.name, serializer);
+    sse_encode_String(self.peerId, serializer);
+    sse_encode_bool(self.isActive, serializer);
+    sse_encode_String(self.statusNote, serializer);
+  }
 
-@protected void sse_encode_list_String(List<String> self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_i_32(self.length, serializer);
-        for (final item in self) { sse_encode_String(item, serializer); } }
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_String(item, serializer);
+    }
+  }
 
-@protected void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_i_32(self.length, serializer);
-                    serializer.buffer.putUint8List(self is Uint8List ? self : Uint8List.fromList(self)); }
+  @protected
+  void sse_encode_list_prim_u_8_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(
+      self is Uint8List ? self : Uint8List.fromList(self),
+    );
+  }
 
-@protected void sse_encode_list_prim_u_8_strict(Uint8List self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_i_32(self.length, serializer);
-                    serializer.buffer.putUint8List(self); }
+  @protected
+  void sse_encode_list_prim_u_8_strict(
+    Uint8List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(self);
+  }
 
-@protected void sse_encode_opt_String(String? self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
 
-                sse_encode_bool(self != null, serializer);
-                if (self != null) {
-                    sse_encode_String(self, serializer);
-                }
-                 }
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
 
-@protected void sse_encode_record_list_string_list_string((List<String>,List<String>) self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_list_String(self.$1, serializer);
-sse_encode_list_String(self.$2, serializer);
- }
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
 
-@protected void sse_encode_record_vdf_job_response_string((VdfJobResponse,String) self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_vdf_job_response(self.$1, serializer);
-sse_encode_String(self.$2, serializer);
- }
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_prim_u_8_strict(self, serializer);
+    }
+  }
 
-@protected void sse_encode_resolved_kin_document(ResolvedKinDocument self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_String(self.rawJson, serializer);
-sse_encode_opt_String(self.targetUrl, serializer);
- }
+  @protected
+  void sse_encode_record_list_string_list_string(
+    (List<String>, List<String>) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_String(self.$1, serializer);
+    sse_encode_list_String(self.$2, serializer);
+  }
 
-@protected void sse_encode_u_32(int self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-serializer.buffer.putUint32(self); }
+  @protected
+  void sse_encode_record_vdf_job_response_string(
+    (VdfJobResponse, String) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_vdf_job_response(self.$1, serializer);
+    sse_encode_String(self.$2, serializer);
+  }
 
-@protected void sse_encode_u_64(BigInt self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-serializer.buffer.putBigUint64(self); }
+  @protected
+  void sse_encode_resolved_kin_document(
+    ResolvedKinDocument self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.rawJson, serializer);
+    sse_encode_opt_String(self.targetUrl, serializer);
+  }
 
-@protected void sse_encode_u_8(int self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-serializer.buffer.putUint8(self); }
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
 
-@protected void sse_encode_unit(void self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
- }
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
+  }
 
-@protected void sse_encode_vdf_job_response(VdfJobResponse self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-sse_encode_String(self.challengeHex, serializer);
-sse_encode_list_prim_u_8_strict(self.salt, serializer);
-sse_encode_u_64(self.drandPulse, serializer);
-sse_encode_String(self.drandRandomness, serializer);
-sse_encode_u_64(self.iterations, serializer);
- }
+  @protected
+  void sse_encode_u_8(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint8(self);
+  }
 
-@protected void sse_encode_i_32(int self, SseSerializer serializer){ // Codec=Sse (Serialization based), see doc to use other codecs
-serializer.buffer.putInt32(self); }
-                }
-                
+  @protected
+  void sse_encode_unit(void self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+  }
+
+  @protected
+  void sse_encode_vdf_job_response(
+    VdfJobResponse self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.challengeHex, serializer);
+    sse_encode_list_prim_u_8_strict(self.salt, serializer);
+    sse_encode_u_64(self.drandPulse, serializer);
+    sse_encode_String(self.drandRandomness, serializer);
+    sse_encode_u_64(self.iterations, serializer);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+}

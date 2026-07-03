@@ -6,30 +6,41 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-
-            // These functions are ignored because they are not marked as `pub`: `get_or_spawn_transport_bridge`, `handle_bridge_request`
+// These functions are ignored because they are not marked as `pub`: `get_or_spawn_transport_bridge`, `handle_bridge_request`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `BridgeInfo`, `DrandResponse`
 
-
-            /// Returns the current bridge authentication token.
-Future<String>  getBridgeToken() => RustLib.instance.api.crateApiDaemonGetBridgeToken();
+/// Returns the current bridge authentication token.
+Future<String> getBridgeToken() =>
+    RustLib.instance.api.crateApiDaemonGetBridgeToken();
 
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
-Future<void>  initLightClient() => RustLib.instance.api.crateApiDaemonInitLightClient();
+Future<Uint8List?> initLightClient({
+  required String appDir,
+  Uint8List? identityBytes,
+}) => RustLib.instance.api.crateApiDaemonInitLightClient(
+  appDir: appDir,
+  identityBytes: identityBytes,
+);
 
 /// Backward-compatible alias — `frb_generated.rs` was code-generated calling this name.
 /// It delegates to `init_light_client()` which is the canonical function.
-Future<void>  initDaemon({required List<String> bootstrapNodes }) => RustLib.instance.api.crateApiDaemonInitDaemon(bootstrapNodes: bootstrapNodes);
+Future<Uint8List?> initDaemon({
+  required String appDir,
+  Uint8List? identityBytes,
+}) => RustLib.instance.api.crateApiDaemonInitDaemon(
+  appDir: appDir,
+  identityBytes: identityBytes,
+);
 
 /// Expose manual reconnect for Flutter AppLifecycleState.resumed
-Future<void>  reconnectNetwork() => RustLib.instance.api.crateApiDaemonReconnectNetwork();
+Future<void> reconnectNetwork() =>
+    RustLib.instance.api.crateApiDaemonReconnectNetwork();
 
 /// Shuts down all active transport bridges. Useful during hot-restarts
 /// or memory cleanups to avoid port collisions (Case 160).
-Future<void>  shutdownBridges() => RustLib.instance.api.crateApiDaemonShutdownBridges();
+Future<void> shutdownBridges() =>
+    RustLib.instance.api.crateApiDaemonShutdownBridges();
 
-Future<BigInt>  fetchLatestDrand() => RustLib.instance.api.crateApiDaemonFetchLatestDrand();
-
-            
-            
+Future<BigInt> fetchLatestDrand() =>
+    RustLib.instance.api.crateApiDaemonFetchLatestDrand();
