@@ -42,7 +42,7 @@ jobs:
         run: |
           npm run build:chrome
           cd dist
-          zip -r ../chrome-extension.zip ./*
+          zip -r ../kinetic-chrome.zip ./*
 
       # --- FIREFOX ---
       - name: Build Firefox Extension
@@ -52,7 +52,7 @@ jobs:
           rm -rf dist
           npm run build:firefox
           cd dist
-          zip -r ../firefox-extension.zip ./*
+          zip -r ../kinetic-firefox.zip ./*
 
       # --- OPERA ---
       - name: Build Opera Extension
@@ -61,7 +61,7 @@ jobs:
           rm -rf dist
           npm run build:opera
           cd dist
-          zip -r ../opera-extension.zip ./*
+          zip -r ../kinetic-opera.zip ./*
 
       # --- UPLOAD TO GITHUB RELEASES ---
       - name: Upload to GitHub Release
@@ -69,9 +69,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            extension/chrome-extension.zip
-            extension/firefox-extension.zip
-            extension/opera-extension.zip
+            extension/kinetic-chrome.zip
+            extension/kinetic-firefox.zip
+            extension/kinetic-opera.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -82,7 +82,7 @@ jobs:
         working-directory: extension
         run: |
           npx chrome-webstore-upload-cli@3 \
-            --source chrome-extension.zip \
+            --source kinetic-chrome.zip \
             --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
             --client-id ${{ secrets.CHROME_CLIENT_ID }} \
             --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
@@ -97,8 +97,10 @@ jobs:
         if: env.FIREFOX_JWT_ISSUER != ''
         working-directory: extension
         run: |
+          mkdir -p firefox-tmp
+          unzip kinetic-firefox.zip -d firefox-tmp
           npx web-ext sign \
-            --source-dir ./dist \
+            --source-dir ./firefox-tmp \
             --channel listed \
             --api-key ${{ secrets.FIREFOX_JWT_ISSUER }} \
             --api-secret ${{ secrets.FIREFOX_JWT_SECRET }}
