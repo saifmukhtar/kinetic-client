@@ -7,7 +7,7 @@ This Privacy Policy describes how the Kinetic Client browser extension ("the Ext
 ## 1. Data Collection
 
 **We do not collect any personal data.**  
-The Extension is designed to operate completely locally on your device as a light node for the decentralized Kinetic Network. 
+The Extension is designed to operate completely locally on your device as a light node for the decentralized Kinetic Network. By running the extension, you actively participate in the Kinetic network and help secure the mesh. 
 
 - **No Analytics:** We do not use Google Analytics, tracking pixels, or any third-party analytics software.
 - **No Browsing History:** We do not track, store, or transmit the websites you visit. 

@@ -11,7 +11,7 @@ This document contains all the copy, descriptions, and permission justifications
 Kinetic Client is your gateway to the decentralized web. This extension serves two primary purposes:
 
 1. **Seamless Browsing:** It allows you to natively resolve and view `.kin` domains (e.g., `saif.kin`) directly in your browser without relying on centralized DNS servers.
-2. **Network Participation:** By simply having the extension installed, you run a light node that helps power and secure the decentralized Kinetic DHT network.
+2. **Network Participation:** By simply having the extension installed, you run a light node that actively participates in the Kinetic network and helps secure the mesh.
 
 The extension operates completely locally, maintaining a secure connection to the network to resolve domains quickly and transparently.
 
