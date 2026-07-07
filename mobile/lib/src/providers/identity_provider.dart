@@ -56,8 +56,11 @@ class IdentityNotifier extends Notifier<IdentityState> {
     try {
       if (url.startsWith('npub1')) {
         state = state.copyWith(
-          isResolving: false, 
-          error: const IdentityError(IdentityErrorKind.unknown, 'Direct Nostr pubkey lookups are disabled for privacy and connection stability (Edge Cases 79 & 80).')
+          isResolving: false,
+          error: const IdentityError(
+            IdentityErrorKind.unknown,
+            'Direct Nostr pubkey lookups are disabled for privacy and connection stability (Edge Cases 79 & 80).',
+          ),
         );
         return;
       }
@@ -73,15 +76,18 @@ class IdentityNotifier extends Notifier<IdentityState> {
       // which take ~10s each to timeout. 45s gives the DHT enough time to recover.
       final doc = await lookupIdentity(kinUrl: url).timeout(
         const Duration(seconds: 45),
-        onTimeout: () => throw Exception('Resolution timed out. The network may be partitioned or the peer is offline.'),
+        onTimeout: () => throw Exception(
+          'Resolution timed out. The network may be partitioned or the peer is offline.',
+        ),
       );
       final Map<String, dynamic> decoded = jsonDecode(doc.rawJson);
-      
+
       // Edge Case 97: Sanitize untrusted peer payload to prevent spoofing
-      decoded['status'] = 'Verified'; // Kademlia signature was already verified by Rust
+      decoded['status'] =
+          'Verified'; // Kademlia signature was already verified by Rust
       decoded.remove('resolution');
       decoded.remove('status_note');
-      
+
       // Check for Nostr integration
       if (decoded.containsKey('profile')) {
         final profile = decoded['profile'] as Map<String, dynamic>;
@@ -100,16 +106,21 @@ class IdentityNotifier extends Notifier<IdentityState> {
     } catch (e) {
       final cleanMsg = parseKineticError(e);
       IdentityErrorKind kind = IdentityErrorKind.unknown;
-      
+
       if (cleanMsg.contains('not found')) {
         kind = IdentityErrorKind.notFound;
-      } else if (cleanMsg.contains('offline') || cleanMsg.contains('timed out') || cleanMsg.contains('partitioned')) {
+      } else if (cleanMsg.contains('offline') ||
+          cleanMsg.contains('timed out') ||
+          cleanMsg.contains('partitioned')) {
         kind = IdentityErrorKind.offline;
       } else if (cleanMsg.contains('DHT lookup failed')) {
         kind = IdentityErrorKind.network;
       }
-      
-      state = state.copyWith(isResolving: false, error: IdentityError(kind, cleanMsg));
+
+      state = state.copyWith(
+        isResolving: false,
+        error: IdentityError(kind, cleanMsg),
+      );
     }
   }
 

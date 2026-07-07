@@ -17,11 +17,14 @@ void main() {
       final updated = state.copyWith(
         status: RegistrationStatus.requestingVdf,
         failedStep: RegistrationStatus.attesting,
-        error: const RegistrationError(RegistrationErrorKind.attestation, 'test error'),
+        error: const RegistrationError(
+          RegistrationErrorKind.attestation,
+          'test error',
+        ),
         desktopUrl: 'npub1test',
         challengeHex: '0x123',
       );
-      
+
       expect(updated.status, RegistrationStatus.requestingVdf);
       expect(updated.failedStep, RegistrationStatus.attesting);
       expect(updated.error?.message, 'test error');
@@ -33,14 +36,17 @@ void main() {
       const state = RegistrationState(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.requestingVdf,
-        error: RegistrationError(RegistrationErrorKind.network, 'network error'),
+        error: RegistrationError(
+          RegistrationErrorKind.network,
+          'network error',
+        ),
       );
-      
+
       final cleared = state.copyWith(
         status: RegistrationStatus.pollingVdf,
         clearError: true,
       );
-      
+
       expect(cleared.status, RegistrationStatus.pollingVdf);
       expect(cleared.failedStep, isNull);
       expect(cleared.error, isNull);

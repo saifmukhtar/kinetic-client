@@ -1,10 +1,12 @@
-use kinetic_core::types::{is_valid_apex_name, normalize_name, VdfJobRequest, Reveal, VdfProof, Heartbeat};
-use flutter_rust_bridge::frb;
-use sha2::{Sha256, Digest};
 use crate::api::error::DelegationError;
-use ed25519_dalek::{SigningKey, Signer};
-use serde::{Deserialize, Serialize};
+use ed25519_dalek::{Signer, SigningKey};
+use flutter_rust_bridge::frb;
+use kinetic_core::types::{
+    Heartbeat, Reveal, VdfJobRequest, VdfProof, is_valid_apex_name, normalize_name,
+};
 use nostr_sdk::prelude::*;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Validates that a requested domain name meets the mobile delegation rules.
 /// Specifically, the name must be at least 8 characters long.
@@ -13,10 +15,12 @@ pub fn validate_delegation_name(name: &str) -> Result<bool, DelegationError> {
     if !is_valid_apex_name(name) {
         return Ok(false);
     }
-    
+
     let fqdn = normalize_name(name);
-    let name_part = fqdn.strip_suffix(kinetic_core::types::DOT_TLD).unwrap_or(&fqdn);
-    
+    let name_part = fqdn
+        .strip_suffix(kinetic_core::types::DOT_TLD)
+        .unwrap_or(&fqdn);
+
     if name_part.len() < 8 {
         return Ok(false);
     }
@@ -27,14 +31,16 @@ pub fn validate_delegation_name(name: &str) -> Result<bool, DelegationError> {
             return Ok(false);
         }
     }
-    
+
     Ok(true)
 }
 
 /// Derives the Ed25519 verifying (public) key bytes from a 32-byte signing (private) key.
 /// Used by the HTTP VDF request flow to send the correct pubkey to the desktop node.
 #[frb(sync)]
-pub fn derive_public_key_bytes_sync(private_key_bytes: Vec<u8>) -> Result<Vec<u8>, DelegationError> {
+pub fn derive_public_key_bytes_sync(
+    private_key_bytes: Vec<u8>,
+) -> Result<Vec<u8>, DelegationError> {
     let key_bytes: [u8; 32] = private_key_bytes
         .try_into()
         .map_err(|_| DelegationError::InvalidPrivateKey)?;
@@ -48,11 +54,11 @@ fn check_leading_zeros(hash: &[u8], target_bits: u32) -> bool {
     for &byte in hash {
         let leading_zeros = byte.leading_zeros();
         bits_found += leading_zeros;
-        
+
         if bits_found >= target_bits {
             return true;
         }
-        
+
         if byte != 0 {
             break;
         }
@@ -71,21 +77,24 @@ pub struct VdfJobResponse {
 
 /// Prepares and encrypts a VDF proof request for a Nostr NIP-04 Direct Message
 pub async fn prepare_vdf_request_nostr(
-    desktop_npub: String, 
-    name: String, 
+    desktop_npub: String,
+    name: String,
     private_key_bytes: Vec<u8>,
-    difficulty_bits: u32
+    difficulty_bits: u32,
 ) -> Result<(VdfJobResponse, String), DelegationError> {
-    
     let fqdn = normalize_name(&name);
-    let len = fqdn.strip_suffix(kinetic_core::types::DOT_TLD).unwrap_or(&fqdn).len();
+    let len = fqdn
+        .strip_suffix(kinetic_core::types::DOT_TLD)
+        .unwrap_or(&fqdn)
+        .len();
     if len < 8 {
         return Err(DelegationError::NameTooShort);
     }
 
-    let key_bytes: [u8; 32] = private_key_bytes.try_into()
+    let key_bytes: [u8; 32] = private_key_bytes
+        .try_into()
         .map_err(|_| DelegationError::InvalidPrivateKey)?;
-    
+
     let secret_key = SecretKey::from_slice(&key_bytes)
         .map_err(|e| DelegationError::Internal(format!("Invalid secret key: {}", e)))?;
     let keys = Keys::new(secret_key);
@@ -103,30 +112,29 @@ pub async fn prepare_vdf_request_nostr(
     ];
     let mut randomness = String::new();
     for url in drand_urls.iter() {
-        if let Ok(resp) = reqwest::get(*url).await {
-            if let Ok(json) = resp.json::<serde_json::Value>().await {
-                if let Some(r) = json["randomness"].as_str() {
+        if let Ok(resp) = reqwest::get(*url).await
+            && let Ok(json) = resp.json::<serde_json::Value>().await
+                && let Some(r) = json["randomness"].as_str() {
                     randomness = r.to_string();
                     break;
                 }
-            }
-        }
     }
     if randomness.is_empty() {
         return Err(DelegationError::DrandFetchFailed);
     }
 
     let mut salt = [0u8; 32];
-    getrandom::getrandom(&mut salt).map_err(|e| DelegationError::Internal(format!("Failed to generate salt: {}", e)))?;
-    
+    getrandom::getrandom(&mut salt)
+        .map_err(|e| DelegationError::Internal(format!("Failed to generate salt: {}", e)))?;
+
     let challenge_bytes = hex::decode(&randomness).unwrap_or_else(|_| vec![0u8; 32]);
 
     // Construct Commitment Hash
     let mut hasher = Sha256::new();
     hasher.update(fqdn.as_bytes());
-    hasher.update(&salt);
+    hasher.update(salt);
     hasher.update(&challenge_bytes);
-    hasher.update(&keys.public_key().to_bytes());
+    hasher.update(keys.public_key().to_bytes());
     let mut challenge_hash = [0u8; 32];
     challenge_hash.copy_from_slice(&hasher.finalize());
 
@@ -134,8 +142,11 @@ pub async fn prepare_vdf_request_nostr(
     let mut nonce: u64 = 0;
     loop {
         let mut h = Sha256::new();
-        h.update(&challenge_hash);
-        h.update(&nonce.to_le_bytes());
+        let mut msg = Vec::new();
+        msg.extend_from_slice(fqdn.as_bytes());
+        msg.extend_from_slice(&challenge_hash);
+        h.update(msg);
+        h.update(nonce.to_le_bytes());
         let result = h.finalize();
         if check_leading_zeros(&result, difficulty_bits) {
             break;
@@ -144,24 +155,30 @@ pub async fn prepare_vdf_request_nostr(
     }
 
     let req = VdfJobRequest {
-        challenge_hash: challenge_hash,
+        challenge_hash,
         name_length: len as u8,
         hashcash_nonce: nonce,
         drand_pulse: round,
     };
 
-    let req_json = serde_json::to_string(&req).map_err(|e| DelegationError::Internal(e.to_string()))?;
+    let req_json =
+        serde_json::to_string(&req).map_err(|e| DelegationError::Internal(e.to_string()))?;
     let encrypted_content = nip04::encrypt(keys.secret_key(), &desktop_pubkey, req_json)
         .map_err(|e| DelegationError::Internal(e.to_string()))?;
-    
+
     // Edge Cases 164 & 169: Use Drand round to calculate exact current time to prevent clock skew relay rejections
     // Drand mainnet genesis is 1595431050,    // Kinetic uses Quicknet params, not Mainnet.
     let drand_timestamp = 1692803367 + (round * 3);
     let timestamp = Timestamp::from(drand_timestamp as u64);
-    
-    let event = EventBuilder::new(Kind::EncryptedDirectMessage, encrypted_content, [Tag::public_key(desktop_pubkey)])
-        .custom_created_at(timestamp)
-        .to_event(&keys).map_err(|e| DelegationError::Internal(e.to_string()))?;
+
+    let event = EventBuilder::new(
+        Kind::EncryptedDirectMessage,
+        encrypted_content,
+        [Tag::public_key(desktop_pubkey)],
+    )
+    .custom_created_at(timestamp)
+    .to_event(&keys)
+    .map_err(|e| DelegationError::Internal(e.to_string()))?;
     let event_json = event.as_json();
 
     let response = VdfJobResponse {
@@ -179,29 +196,34 @@ pub async fn prepare_vdf_request_nostr(
 pub fn decrypt_vdf_proof_nostr(
     desktop_npub: String,
     private_key_bytes: Vec<u8>,
-    encrypted_content: String
+    encrypted_content: String,
 ) -> Result<Vec<u8>, DelegationError> {
-    let key_bytes: [u8; 32] = private_key_bytes.try_into()
+    let key_bytes: [u8; 32] = private_key_bytes
+        .try_into()
         .map_err(|_| DelegationError::InvalidPrivateKey)?;
-    
-    let secret_key = SecretKey::from_slice(&key_bytes)
-        .map_err(|e| DelegationError::Internal(e.to_string()))?;
-    let desktop_pubkey = PublicKey::parse(&desktop_npub)
-        .map_err(|e| DelegationError::Internal(e.to_string()))?;
-    
+
+    let secret_key =
+        SecretKey::from_slice(&key_bytes).map_err(|e| DelegationError::Internal(e.to_string()))?;
+    let desktop_pubkey =
+        PublicKey::parse(&desktop_npub).map_err(|e| DelegationError::Internal(e.to_string()))?;
+
     let decrypted = nip04::decrypt(&secret_key, &desktop_pubkey, encrypted_content)
         .map_err(|e| DelegationError::Internal(e.to_string()))?;
-    
-    let proof_json: serde_json::Value = serde_json::from_str(&decrypted).map_err(|e| DelegationError::Internal(e.to_string()))?;
+
+    let proof_json: serde_json::Value =
+        serde_json::from_str(&decrypted).map_err(|e| DelegationError::Internal(e.to_string()))?;
     if let Some(proof_hex) = proof_json["proof_bytes"].as_str() {
         if proof_hex.len() > 1024 {
             return Err(DelegationError::ProofTooLong);
         }
-        let proof_bytes = hex::decode(proof_hex).map_err(|e| DelegationError::Internal(e.to_string()))?;
+        let proof_bytes =
+            hex::decode(proof_hex).map_err(|e| DelegationError::Internal(e.to_string()))?;
         return Ok(proof_bytes);
     }
-    
-    Err(DelegationError::InvalidProof("Invalid proof format from desktop node".to_string()))
+
+    Err(DelegationError::InvalidProof(
+        "Invalid proof format from desktop node".to_string(),
+    ))
 }
 
 pub async fn broadcast_mobile_reveal(
@@ -214,13 +236,15 @@ pub async fn broadcast_mobile_reveal(
     drand_randomness: String,
 ) -> Result<bool, DelegationError> {
     let fqdn = normalize_name(&name);
-    
-    let key_bytes: [u8; 32] = private_key_bytes.try_into()
+
+    let key_bytes: [u8; 32] = private_key_bytes
+        .try_into()
         .map_err(|_| DelegationError::InvalidPrivateKey)?;
     let signing_key = SigningKey::from_bytes(&key_bytes);
     let pubkey = signing_key.verifying_key().to_bytes().to_vec();
 
-    let required_iters = kinetic_core::consensus_math::ConsensusParams::default().required_iterations(&fqdn, drand_pulse, &pubkey);
+    let required_iters = kinetic_core::consensus_math::ConsensusParams::default()
+        .required_iterations(&fqdn, drand_pulse, &pubkey);
 
     let mut salt_arr = [0u8; 32];
     if salt.len() >= 32 {
@@ -235,7 +259,9 @@ pub async fn broadcast_mobile_reveal(
         drand_pulse,
         drand_randomness,
         iterations: required_iters,
-        vdf_proof: VdfProof { proof_bytes: vdf_proof_bytes },
+        vdf_proof: VdfProof {
+            proof_bytes: vdf_proof_bytes,
+        },
         pubkey,
         miner_pubkey: None,
         points_spent: None,
@@ -246,10 +272,13 @@ pub async fn broadcast_mobile_reveal(
     let signable = reveal.signable_bytes();
     reveal.signature = signing_key.sign(&signable).to_bytes().to_vec();
 
-    let reveal_bytes = serde_json::to_vec(&reveal).map_err(|e| DelegationError::Internal(e.to_string()))?;
+    let reveal_bytes =
+        serde_json::to_vec(&reveal).map_err(|e| DelegationError::Internal(e.to_string()))?;
 
     if let Some(network) = crate::api::daemon::NETWORK_CLIENT.get() {
-        network.publish_redundant_payload(&fqdn, reveal_bytes).await
+        network
+            .publish_redundant_payload(&fqdn, reveal_bytes)
+            .await
             .map_err(|e| DelegationError::Internal(e.to_string()))?;
         Ok(true)
     } else {
@@ -257,10 +286,14 @@ pub async fn broadcast_mobile_reveal(
     }
 }
 
-pub async fn broadcast_mobile_heartbeat(name: String, private_key_bytes: Vec<u8>) -> Result<bool, DelegationError> {
+pub async fn broadcast_mobile_heartbeat(
+    name: String,
+    private_key_bytes: Vec<u8>,
+) -> Result<bool, DelegationError> {
     let fqdn = normalize_name(&name);
 
-    let key_bytes: [u8; 32] = private_key_bytes.try_into()
+    let key_bytes: [u8; 32] = private_key_bytes
+        .try_into()
         .map_err(|_| DelegationError::InvalidPrivateKey)?;
     let signing_key = SigningKey::from_bytes(&key_bytes);
 
@@ -276,10 +309,13 @@ pub async fn broadcast_mobile_heartbeat(name: String, private_key_bytes: Vec<u8>
     let signable = heartbeat.signable_bytes();
     heartbeat.signature = signing_key.sign(&signable).to_bytes().to_vec();
 
-    let hb_bytes = serde_json::to_vec(&heartbeat).map_err(|e| DelegationError::Internal(e.to_string()))?;
+    let hb_bytes =
+        serde_json::to_vec(&heartbeat).map_err(|e| DelegationError::Internal(e.to_string()))?;
 
     if let Some(network) = crate::api::daemon::NETWORK_CLIENT.get() {
-        network.publish_redundant_payload(&fqdn, hb_bytes).await
+        network
+            .publish_redundant_payload(&fqdn, hb_bytes)
+            .await
             .map_err(|e| DelegationError::Internal(e.to_string()))?;
         Ok(true)
     } else {
@@ -293,20 +329,20 @@ mod delegation_tests {
 
     #[test]
     fn test_validate_delegation_name_short() {
-        assert_eq!(validate_delegation_name("short").unwrap(), false);
-        assert_eq!(validate_delegation_name("1234567").unwrap(), false);
+        assert!(!validate_delegation_name("short").unwrap());
+        assert!(!validate_delegation_name("1234567").unwrap());
     }
 
     #[test]
     fn test_validate_delegation_name_invalid_chars() {
-        assert_eq!(validate_delegation_name("invalid!name").unwrap(), false);
-        assert_eq!(validate_delegation_name("spaces in name").unwrap(), false);
+        assert!(!validate_delegation_name("invalid!name").unwrap());
+        assert!(!validate_delegation_name("spaces in name").unwrap());
     }
 
     #[test]
     fn test_validate_delegation_name_valid() {
-        assert_eq!(validate_delegation_name("validdomain").unwrap(), true);
-        assert_eq!(validate_delegation_name("12345678").unwrap(), true);
+        assert!(validate_delegation_name("validdomain").unwrap());
+        assert!(validate_delegation_name("12345678").unwrap());
     }
 
     #[test]
@@ -326,19 +362,23 @@ mod delegation_tests {
     #[test]
     fn test_decrypt_vdf_proof_nostr_invalid() {
         let private_key = [1u8; 32].to_vec();
-        let desktop_npub = "npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m".to_string(); // Valid dummy npub
-        
+        let desktop_npub =
+            "npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m".to_string(); // Valid dummy npub
+
         // Passing garbage encrypted string
-        let result = decrypt_vdf_proof_nostr(desktop_npub, private_key, "garbage_content".to_string());
+        let result =
+            decrypt_vdf_proof_nostr(desktop_npub, private_key, "garbage_content".to_string());
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_prepare_vdf_request_nostr_short_name() {
         let private_key = [1u8; 32].to_vec();
-        let desktop_npub = "npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m".to_string(); // Valid dummy npub
-        
-        let result = prepare_vdf_request_nostr(desktop_npub, "short".to_string(), private_key, 1).await;
+        let desktop_npub =
+            "npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m".to_string(); // Valid dummy npub
+
+        let result =
+            prepare_vdf_request_nostr(desktop_npub, "short".to_string(), private_key, 1).await;
         assert!(matches!(result, Err(DelegationError::NameTooShort)));
     }
 }

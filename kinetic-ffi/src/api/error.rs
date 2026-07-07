@@ -4,22 +4,22 @@ use thiserror::Error;
 pub enum ResolverError {
     #[error("Not initialized: call init_light_client() first")]
     NotInitialized,
-    
+
     #[error("You appear to be offline. Cannot connect to the Kinetic network.")]
     Offline,
-    
+
     #[error("Name '{0}' was not found in the Kinetic network. It may be unregistered.")]
     NotFound(String),
-    
+
     #[error("The registration for '{0}' has expired ({1} rounds old).")]
     Expired(String, u64),
-    
+
     #[error("Invalid URL format: {0}")]
     InvalidUrl(String),
 
     #[error("No 'website' service found in manifest for KID {0}")]
     NoWebsiteService(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -91,7 +91,10 @@ mod tests {
     #[test]
     fn test_error_formatting() {
         let err = ResolverError::NotFound("test".to_string());
-        assert_eq!(err.to_string(), "Name 'test' was not found in the Kinetic network. It may be unregistered.");
+        assert_eq!(
+            err.to_string(),
+            "Name 'test' was not found in the Kinetic network. It may be unregistered."
+        );
 
         let err = DelegationError::NameTooShort;
         assert_eq!(err.to_string(), "Name must be at least 8 characters long");
@@ -100,6 +103,9 @@ mod tests {
         assert_eq!(err.to_string(), "Network client already initialized");
 
         let err = IdentityError::Offline;
-        assert_eq!(err.to_string(), "You appear to be offline. Cannot connect to the Kinetic network.");
+        assert_eq!(
+            err.to_string(),
+            "You appear to be offline. Cannot connect to the Kinetic network."
+        );
     }
 }

@@ -6,15 +6,16 @@ import 'package:flutter/foundation.dart';
 /// Edge Case: Local Storage Wipe (156)
 class SecureStorageService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-    ),
+    aOptions: AndroidOptions(),
   );
 
   static Future<String?> read(String key) async {
     try {
       return await _storage.read(key: key);
     } on PlatformException catch (e) {
-      debugPrint('Secure Storage PlatformException (Possible Storage Wipe/Keystore Desync): $e');
+      debugPrint(
+        'Secure Storage PlatformException (Possible Storage Wipe/Keystore Desync): $e',
+      );
       // If the keystore gets corrupted or the app data is wiped but keystore remains,
       // it throws a bad padding/MAC exception. We must clear storage to recover.
       await _storage.deleteAll();

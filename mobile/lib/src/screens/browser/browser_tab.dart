@@ -47,7 +47,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
 
   Future<void> _initDeepLinks() async {
     _appLinks = AppLinks();
-    
+
     void handleDeepLink(Uri uri) {
       if (uri.scheme == 'kin' || uri.host.endsWith(AppConstants.dotTld)) {
         showDialog(
@@ -96,7 +96,8 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
     var sanitizedInput = input.toLowerCase();
     bool isKinetic = false;
 
-    if (sanitizedInput.startsWith('http://') || sanitizedInput.startsWith('https://')) {
+    if (sanitizedInput.startsWith('http://') ||
+        sanitizedInput.startsWith('https://')) {
       final uri = Uri.tryParse(sanitizedInput);
       if (uri != null && uri.host.endsWith(AppConstants.dotTld)) {
         sanitizedInput = 'kin://${uri.host}${uri.path}';
@@ -107,7 +108,8 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
     } else if (sanitizedInput.startsWith('${AppConstants.tld}://')) {
       isKinetic = true;
     } else {
-      if (sanitizedInput.endsWith(AppConstants.dotTld) || sanitizedInput.contains('${AppConstants.dotTld}/')) {
+      if (sanitizedInput.endsWith(AppConstants.dotTld) ||
+          sanitizedInput.contains('${AppConstants.dotTld}/')) {
         sanitizedInput = 'kin://$sanitizedInput';
         isKinetic = true;
       } else if (sanitizedInput.contains('.')) {
@@ -124,10 +126,16 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
     try {
       if (isKinetic) {
         final uri = Uri.tryParse(sanitizedInput);
-        if (uri == null || uri.scheme != 'kin' || uri.host.isEmpty || !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(uri.host)) {
+        if (uri == null ||
+            uri.scheme != 'kin' ||
+            uri.host.isEmpty ||
+            !RegExp(r'^[a-zA-Z0-9.-]+$').hasMatch(uri.host)) {
           setState(() {
             _loading = false;
-            _error = const IdentityError(IdentityErrorKind.notFound, 'Invalid Kinetic URL format.');
+            _error = const IdentityError(
+              IdentityErrorKind.notFound,
+              'Invalid Kinetic URL format.',
+            );
           });
           return;
         }
@@ -142,7 +150,10 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
         if (doc.targetUrl == null) {
           setState(() {
             _loading = false;
-            _error = const IdentityError(IdentityErrorKind.notFound, 'This name has no hosted site.');
+            _error = const IdentityError(
+              IdentityErrorKind.notFound,
+              'This name has no hosted site.',
+            );
           });
           return;
         }
@@ -179,10 +190,12 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
         // Use a fade transition for a more modern feel
         Navigator.of(context, rootNavigator: true).push(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => BrowserPage(site: site!),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                BrowserPage(site: site!),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
           ),
         );
       }
@@ -192,8 +205,11 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
       String cleanMsg = msg.split('\n').first; // Strip stacktrace
       if (msg.contains('not found in the Kinetic network')) {
         kind = IdentityErrorKind.notFound;
-        cleanMsg = "Name '$sanitizedInput' was not found in the Kinetic network. It may be unregistered.";
-      } else if (msg.contains('offline') || msg.contains('timed out') || msg.contains('partitioned')) {
+        cleanMsg =
+            "Name '$sanitizedInput' was not found in the Kinetic network. It may be unregistered.";
+      } else if (msg.contains('offline') ||
+          msg.contains('timed out') ||
+          msg.contains('partitioned')) {
         kind = IdentityErrorKind.offline;
         cleanMsg = "You appear to be offline or the network is partitioned.";
       } else if (msg.contains('DHT lookup failed')) {
@@ -227,7 +243,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
               ),
             ),
           ),
-          
+
           Center(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -244,13 +260,15 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppTheme.surface.withValues(alpha: 0.5),
-                          border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: AppTheme.border.withValues(alpha: 0.5),
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: AppTheme.primary.withValues(alpha: 0.1),
                               blurRadius: 32,
                               offset: const Offset(0, 16),
-                            )
+                            ),
                           ],
                         ),
                         child: Image.asset(
@@ -289,52 +307,59 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                       loading: _loading,
                       onSubmitted: _resolve,
                     ),
-                    
+
                     // Error message
                     if (_error != null)
-                      Builder(builder: (context) {
-                        IconData icon = Icons.error_outline_rounded;
-                        switch (_error!.kind) {
-                          case IdentityErrorKind.notFound:
-                            icon = Icons.search_off_rounded;
-                            break;
-                          case IdentityErrorKind.offline:
-                            icon = Icons.wifi_off_rounded;
-                            break;
-                          case IdentityErrorKind.network:
-                            icon = Icons.cloud_off_rounded;
-                            break;
-                          default:
-                            break;
-                        }
+                      Builder(
+                        builder: (context) {
+                          IconData icon = Icons.error_outline_rounded;
+                          switch (_error!.kind) {
+                            case IdentityErrorKind.notFound:
+                              icon = Icons.search_off_rounded;
+                              break;
+                            case IdentityErrorKind.offline:
+                              icon = Icons.wifi_off_rounded;
+                              break;
+                            case IdentityErrorKind.network:
+                              icon = Icons.cloud_off_rounded;
+                              break;
+                            default:
+                              break;
+                          }
 
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.only(top: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.error.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(icon, color: AppTheme.error, size: 24),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  _error!.message,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    color: AppTheme.error,
-                                    fontWeight: FontWeight.w600,
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.only(top: 24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 16,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.error.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(icon, color: AppTheme.error, size: 24),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    _error!.message,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: AppTheme.error,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
 
                     // Recent sites
                     if (_recentSites.isNotEmpty) ...[
@@ -343,7 +368,11 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                         alignment: Alignment.centerLeft,
                         child: Row(
                           children: [
-                            const Icon(Icons.history_rounded, size: 18, color: AppTheme.textHint),
+                            const Icon(
+                              Icons.history_rounded,
+                              size: 18,
+                              color: AppTheme.textHint,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'RECENT SITES',
@@ -408,7 +437,9 @@ class _RecentSiteCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.surface.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: AppTheme.border.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 children: [
@@ -425,9 +456,15 @@ class _RecentSiteCard extends StatelessWidget {
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+                      border: Border.all(
+                        color: AppTheme.primary.withValues(alpha: 0.2),
+                      ),
                     ),
-                    child: const Icon(Icons.public_rounded, color: AppTheme.primary, size: 22),
+                    child: const Icon(
+                      Icons.public_rounded,
+                      color: AppTheme.primary,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -435,7 +472,9 @@ class _RecentSiteCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          site.kinUrl.startsWith('${AppConstants.tld}://') ? '${site.displayName}${AppConstants.dotTld}' : site.kinUrl,
+                          site.kinUrl.startsWith('${AppConstants.tld}://')
+                              ? '${site.displayName}${AppConstants.dotTld}'
+                              : site.kinUrl,
                           style: GoogleFonts.firaCode(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -446,29 +485,47 @@ class _RecentSiteCard extends StatelessWidget {
                         if (site.kinUrl.startsWith('${AppConstants.tld}://'))
                           const Row(
                             children: [
-                              Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),
+                              Icon(
+                                Icons.verified_rounded,
+                                size: 14,
+                                color: AppTheme.success,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Verified via Kinetic DHT',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ],
                           )
                         else
                           const Row(
                             children: [
-                              Icon(Icons.public_rounded, size: 14, color: AppTheme.textHint),
+                              Icon(
+                                Icons.public_rounded,
+                                size: 14,
+                                color: AppTheme.textHint,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Standard Web Link',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
                             ],
                           ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.textHint),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: AppTheme.textHint,
+                  ),
                 ],
               ),
             ),

@@ -3,13 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kinetic/src/theme/app_theme.dart';
 
-
 /// The main app shell. Manages the bottom navigation bar and tab switching.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({
-    super.key,
-    required this.navigationShell,
-  });
+  const HomeScreen({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 

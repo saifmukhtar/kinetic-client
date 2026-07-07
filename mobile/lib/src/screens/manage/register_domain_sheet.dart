@@ -9,13 +9,11 @@ import 'package:kinetic/src/widgets/registration_sheet.dart';
 class RegisterDomainSheet extends ConsumerStatefulWidget {
   final VoidCallback onRegistered;
 
-  const RegisterDomainSheet({
-    super.key,
-    required this.onRegistered,
-  });
+  const RegisterDomainSheet({super.key, required this.onRegistered});
 
   @override
-  ConsumerState<RegisterDomainSheet> createState() => _RegisterDomainSheetState();
+  ConsumerState<RegisterDomainSheet> createState() =>
+      _RegisterDomainSheetState();
 }
 
 class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
@@ -32,17 +30,21 @@ class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
   void _checkAvailability() {
     final input = _controller.text.trim();
     if (input.isEmpty) return;
-    
+
     // Remove .kin if present
-    final name = input.endsWith(AppConstants.dotTld) ? input.substring(0, input.length - 4) : input;
-    
+    final name = input.endsWith(AppConstants.dotTld)
+        ? input.substring(0, input.length - 4)
+        : input;
+
     if (name.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Domain name must be at least 8 characters long.')),
+        const SnackBar(
+          content: Text('Domain name must be at least 8 characters long.'),
+        ),
       );
       return;
     }
-    
+
     FocusScope.of(context).unfocus();
     ref.read(identityProvider.notifier).resolveDomain(name);
   }
@@ -75,14 +77,24 @@ class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     final input = _controller.text.trim();
-    final name = input.endsWith(AppConstants.dotTld) ? input.substring(0, input.length - 4) : input;
+    final name = input.endsWith(AppConstants.dotTld)
+        ? input.substring(0, input.length - 4)
+        : input;
 
     // It's available if there's an error (not found) or explicitly inactive
-    final isAvailable = (identityState.error != null && identityState.error!.kind == IdentityErrorKind.notFound) || 
-        (identityState.data != null && identityState.data!['status'] != 'Verified');
-        
-    final isTaken = identityState.data != null && identityState.data!['status'] == 'Verified' && identityState.error == null;
-    final isNetworkError = identityState.error != null && identityState.error!.kind != IdentityErrorKind.notFound;
+    final isAvailable =
+        (identityState.error != null &&
+            identityState.error!.kind == IdentityErrorKind.notFound) ||
+        (identityState.data != null &&
+            identityState.data!['status'] != 'Verified');
+
+    final isTaken =
+        identityState.data != null &&
+        identityState.data!['status'] == 'Verified' &&
+        identityState.error == null;
+    final isNetworkError =
+        identityState.error != null &&
+        identityState.error!.kind != IdentityErrorKind.notFound;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -92,181 +104,231 @@ class _RegisterDomainSheetState extends ConsumerState<RegisterDomainSheet> {
           color: AppTheme.background,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-      child: SingleChildScrollView(
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: AppTheme.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Register Domain',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: AppTheme.textSecondary),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          Text(
-            'Check if your desired .kin domain is available.',
-            style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 16),
-
-          // Search field
-          TextField(
-            controller: _controller,
-            textInputAction: TextInputAction.search,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            enableSuggestions: false,
-            textCapitalization: TextCapitalization.none,
-            onSubmitted: (_) => _checkAvailability(),
-            onChanged: (_) {
-              setState(() {});
-              if (identityState.data != null || identityState.error != null) {
-                ref.read(identityProvider.notifier).clear();
-              }
-            },
-            style: GoogleFonts.firaCode(fontSize: 16, color: AppTheme.textPrimary),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.language_rounded, color: AppTheme.textHint, size: 20),
-              suffixText: AppConstants.dotTld,
-              suffixStyle: GoogleFonts.firaCode(fontSize: 16, color: AppTheme.textHint),
-              hintText: 'myname',
-              hintStyle: GoogleFonts.firaCode(fontSize: 16, color: AppTheme.textHint),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Check button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: identityState.isResolving || input.isEmpty ? null : _checkAvailability,
-              child: identityState.isResolving
-                  ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : const Text('Check Availability'),
-            ),
-          ),
-          const SizedBox(height: 24),
-          
-          if (isTaken)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.error.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.error.withValues(alpha: 0.2)),
-              ),
-              child: Row(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.cancel_rounded, color: AppTheme.error),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '$name${AppConstants.dotTld} is already registered',
-                      style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+                  Text(
+                    'Register Domain',
+                    style: GoogleFonts.outfit(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppTheme.textSecondary,
+                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 16),
 
-          if (isNetworkError)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.error.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.error.withValues(alpha: 0.2)),
+              Text(
+                'Check if your desired .kin domain is available.',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.cloud_off_rounded, color: AppTheme.error),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      identityState.error!.message,
-                      style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.w600),
+              const SizedBox(height: 16),
+
+              // Search field
+              TextField(
+                controller: _controller,
+                textInputAction: TextInputAction.search,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                enableSuggestions: false,
+                textCapitalization: TextCapitalization.none,
+                onSubmitted: (_) => _checkAvailability(),
+                onChanged: (_) {
+                  setState(() {});
+                  if (identityState.data != null ||
+                      identityState.error != null) {
+                    ref.read(identityProvider.notifier).clear();
+                  }
+                },
+                style: GoogleFonts.firaCode(
+                  fontSize: 16,
+                  color: AppTheme.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(
+                    Icons.language_rounded,
+                    color: AppTheme.textHint,
+                    size: 20,
+                  ),
+                  suffixText: AppConstants.dotTld,
+                  suffixStyle: GoogleFonts.firaCode(
+                    fontSize: 16,
+                    color: AppTheme.textHint,
+                  ),
+                  hintText: 'myname',
+                  hintStyle: GoogleFonts.firaCode(
+                    fontSize: 16,
+                    color: AppTheme.textHint,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Check button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: identityState.isResolving || input.isEmpty
+                      ? null
+                      : _checkAvailability,
+                  child: identityState.isResolving
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text('Check Availability'),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              if (isTaken)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.error.withValues(alpha: 0.2),
                     ),
                   ),
-                ],
-              ),
-            ),
-
-          if (isAvailable && name.length >= 8)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.successLight.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                children: [
-                  Row(
+                  child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: AppTheme.success),
+                      const Icon(Icons.cancel_rounded, color: AppTheme.error),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          '$name${AppConstants.dotTld} is available!',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
+                          '$name${AppConstants.dotTld} is already registered',
+                          style: const TextStyle(
+                            color: AppTheme.error,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.success,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.add_circle_outline_rounded),
-                      label: Text('Register $name${AppConstants.dotTld}'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primary,
-                        side: const BorderSide(color: AppTheme.primary, width: 2),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      onPressed: () => _proceedToRegistration(name),
+                ),
+
+              if (isNetworkError)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppTheme.error.withValues(alpha: 0.2),
                     ),
                   ),
-                ],
-              ),
-            ),
-        ],
-      ),
-      ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        color: AppTheme.error,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          identityState.error!.message,
+                          style: const TextStyle(
+                            color: AppTheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              if (isAvailable && name.length >= 8)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.successLight.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: AppTheme.success.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppTheme.success,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '$name${AppConstants.dotTld} is available!',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.add_circle_outline_rounded),
+                          label: Text('Register $name${AppConstants.dotTld}'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primary,
+                            side: const BorderSide(
+                              color: AppTheme.primary,
+                              width: 2,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          onPressed: () => _proceedToRegistration(name),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

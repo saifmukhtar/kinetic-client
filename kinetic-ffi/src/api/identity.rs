@@ -1,6 +1,5 @@
 use crate::api::error::IdentityError;
 
-
 /// Public identity information for a .kin name, shown in the Identity tab.
 #[derive(Debug, Clone)]
 pub struct IdentityInfo {
@@ -24,7 +23,7 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo, IdentityError>
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
-        .ok_or_else(|| IdentityError::NotInitialized)?;
+        .ok_or(IdentityError::NotInitialized)?;
 
     // Normalize the name.
     let clean = name
@@ -44,12 +43,15 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo, IdentityError>
             return Err(IdentityError::Offline);
         }
         Err(e) => {
-            return Err(IdentityError::Internal(format!("DHT lookup failed for '{}': {}", display_name, e)));
+            return Err(IdentityError::Internal(format!(
+                "DHT lookup failed for '{}': {}",
+                display_name, e
+            )));
         }
     };
 
-    let reveal: kinetic_core::types::Reveal =
-        serde_json::from_slice(&payload).map_err(|e| IdentityError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
+    let reveal: kinetic_core::types::Reveal = serde_json::from_slice(&payload)
+        .map_err(|e| IdentityError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
 
     let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
         .map_err(|e| IdentityError::Internal(format!("Failed to parse DNS zone: {}", e)))?;
@@ -78,7 +80,7 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo, IdentityError>
     let latest_drand = crate::api::daemon::fetch_latest_drand().await;
     let age = latest_drand.saturating_sub(reveal.drand_pulse);
     let max_age_rounds = 1_000_000;
-    
+
     let is_active = age <= max_age_rounds;
     let status_note = if is_active {
         "Active — VDF commitment is valid".to_string()

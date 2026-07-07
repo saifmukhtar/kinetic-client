@@ -35,12 +35,14 @@ class NostrService {
           'authors': [hexPubkey],
           'kinds': [0],
           'limit': 1,
-        }
+        },
       ]);
 
       void closeAll() {
         for (var c in channels) {
-          try { c.sink.close(); } catch (_) {}
+          try {
+            c.sink.close();
+          } catch (_) {}
         }
       }
 
@@ -50,54 +52,63 @@ class NostrService {
           channels.add(channel);
           channel.sink.add(req);
 
-          channel.stream.listen((message) {
-            try {
-              final data = jsonDecode(message);
-              if (data is List && data.isNotEmpty) {
-                final type = data[0];
-                if (type == 'EVENT' && data.length > 2) {
-                  final event = data[2];
-                  if (event['kind'] == 0) {
-                    final content = event['content'] as String;
-                    final profile = jsonDecode(content) as Map<String, dynamic>;
-                    
-                    // Sanitize image URLs (Edge Case 85 prevention)
-                    if (profile.containsKey('picture')) {
-                      profile['picture'] = _sanitizeImageUrl(profile['picture']);
-                    }
-                    if (profile.containsKey('banner')) {
-                      profile['banner'] = _sanitizeImageUrl(profile['banner']);
-                    }
+          channel.stream.listen(
+            (message) {
+              try {
+                final data = jsonDecode(message);
+                if (data is List && data.isNotEmpty) {
+                  final type = data[0];
+                  if (type == 'EVENT' && data.length > 2) {
+                    final event = data[2];
+                    if (event['kind'] == 0) {
+                      final content = event['content'] as String;
+                      final profile =
+                          jsonDecode(content) as Map<String, dynamic>;
 
-                    if (!completer.isCompleted) {
-                      completer.complete(profile);
+                      // Sanitize image URLs (Edge Case 85 prevention)
+                      if (profile.containsKey('picture')) {
+                        profile['picture'] = _sanitizeImageUrl(
+                          profile['picture'],
+                        );
+                      }
+                      if (profile.containsKey('banner')) {
+                        profile['banner'] = _sanitizeImageUrl(
+                          profile['banner'],
+                        );
+                      }
+
+                      if (!completer.isCompleted) {
+                        completer.complete(profile);
+                        closeAll();
+                      }
+                    }
+                  } else if (type == 'EOSE') {
+                    failures++;
+                    if (failures >= _relays.length && !completer.isCompleted) {
+                      completer.complete(null);
                       closeAll();
                     }
                   }
-                } else if (type == 'EOSE') {
-                  failures++;
-                  if (failures >= _relays.length && !completer.isCompleted) {
-                    completer.complete(null);
-                    closeAll();
-                  }
                 }
+              } catch (e) {
+                // Ignore parse errors from single relay
               }
-            } catch (e) {
-              // Ignore parse errors from single relay
-            }
-          }, onError: (e) {
-            failures++;
-            if (failures >= _relays.length && !completer.isCompleted) {
-              completer.complete(null);
-              closeAll();
-            }
-          }, onDone: () {
-            failures++;
-            if (failures >= _relays.length && !completer.isCompleted) {
-              completer.complete(null);
-              closeAll();
-            }
-          });
+            },
+            onError: (e) {
+              failures++;
+              if (failures >= _relays.length && !completer.isCompleted) {
+                completer.complete(null);
+                closeAll();
+              }
+            },
+            onDone: () {
+              failures++;
+              if (failures >= _relays.length && !completer.isCompleted) {
+                completer.complete(null);
+                closeAll();
+              }
+            },
+          );
         } catch (_) {
           failures++;
         }
@@ -134,7 +145,10 @@ class NostrService {
         final channel = WebSocketChannel.connect(Uri.parse(relay));
         channel.sink.add(req);
         // Wait briefly for OK or just assume sent
-        Future.delayed(const Duration(milliseconds: 500), () => channel.sink.close());
+        Future.delayed(
+          const Duration(milliseconds: 500),
+          () => channel.sink.close(),
+        );
         published = true;
       } catch (e) {
         // Ignored
@@ -155,12 +169,14 @@ class NostrService {
         'kinds': [1],
         '#t': ['kinetic-miner'],
         'limit': 5,
-      }
+      },
     ]);
 
     void closeAll() {
       for (var c in channels) {
-        try { c.sink.close(); } catch (_) {}
+        try {
+          c.sink.close();
+        } catch (_) {}
       }
     }
 
@@ -170,42 +186,46 @@ class NostrService {
         channels.add(channel);
         channel.sink.add(req);
 
-        channel.stream.listen((message) {
-          try {
-            final data = jsonDecode(message);
-            if (data is List && data.isNotEmpty) {
-              final type = data[0];
-              if (type == 'EVENT' && data.length > 2) {
-                final event = data[2];
-                if (event['kind'] == 1) {
-                  final pubkeyHex = event['pubkey'];
-                  if (!completer.isCompleted) {
-                    completer.complete(pubkeyHex);
+        channel.stream.listen(
+          (message) {
+            try {
+              final data = jsonDecode(message);
+              if (data is List && data.isNotEmpty) {
+                final type = data[0];
+                if (type == 'EVENT' && data.length > 2) {
+                  final event = data[2];
+                  if (event['kind'] == 1) {
+                    final pubkeyHex = event['pubkey'];
+                    if (!completer.isCompleted) {
+                      completer.complete(pubkeyHex);
+                      closeAll();
+                    }
+                  }
+                } else if (type == 'EOSE') {
+                  failures++;
+                  if (failures >= _relays.length && !completer.isCompleted) {
+                    completer.complete(null);
                     closeAll();
                   }
                 }
-              } else if (type == 'EOSE') {
-                failures++;
-                if (failures >= _relays.length && !completer.isCompleted) {
-                  completer.complete(null);
-                  closeAll();
-                }
               }
+            } catch (_) {}
+          },
+          onError: (_) {
+            failures++;
+            if (failures >= _relays.length && !completer.isCompleted) {
+              completer.complete(null);
+              closeAll();
             }
-          } catch (_) {}
-        }, onError: (_) {
-          failures++;
-          if (failures >= _relays.length && !completer.isCompleted) {
-            completer.complete(null);
-            closeAll();
-          }
-        }, onDone: () {
-          failures++;
-          if (failures >= _relays.length && !completer.isCompleted) {
-            completer.complete(null);
-            closeAll();
-          }
-        });
+          },
+          onDone: () {
+            failures++;
+            if (failures >= _relays.length && !completer.isCompleted) {
+              completer.complete(null);
+              closeAll();
+            }
+          },
+        );
       } catch (_) {
         failures++;
       }
@@ -244,7 +264,7 @@ class NostrService {
           'kinds': [4],
           '#p': [recipientHex],
           'limit': 1,
-        }
+        },
       ]);
 
       final completer = Completer<String?>();
@@ -252,7 +272,9 @@ class NostrService {
 
       void closeAll() {
         for (var c in channels) {
-          try { c.sink.close(); } catch (_) {}
+          try {
+            c.sink.close();
+          } catch (_) {}
         }
       }
 
@@ -262,25 +284,29 @@ class NostrService {
           channels.add(channel);
           channel.sink.add(req);
 
-          channel.stream.listen((message) {
-            try {
-              final data = jsonDecode(message);
-              if (data is List && data.isNotEmpty && data[0] == 'EVENT') {
-                final event = data[2];
-                if (event['kind'] == 4) {
-                  if (!completer.isCompleted) {
-                    completer.complete(event['content']);
+          channel.stream.listen(
+            (message) {
+              try {
+                final data = jsonDecode(message);
+                if (data is List && data.isNotEmpty && data[0] == 'EVENT') {
+                  final event = data[2];
+                  if (event['kind'] == 4) {
+                    if (!completer.isCompleted) {
+                      completer.complete(event['content']);
+                    }
                   }
                 }
-              }
-            } catch (_) {}
-          }, onError: (_) {}, onDone: () {});
+              } catch (_) {}
+            },
+            onError: (_) {},
+            onDone: () {},
+          );
         } catch (_) {}
       }
 
       final result = await Future.any([
         completer.future,
-        Future.delayed(const Duration(seconds: 30), () => null)
+        Future.delayed(const Duration(seconds: 30), () => null),
       ]);
 
       closeAll();
@@ -299,7 +325,12 @@ class NostrService {
     return null; // Desktop node did not respond within the retry window.
   }
 
-  static List<int> _convertBits(List<int> data, int fromBits, int toBits, bool pad) {
+  static List<int> _convertBits(
+    List<int> data,
+    int fromBits,
+    int toBits,
+    bool pad,
+  ) {
     var acc = 0;
     var bits = 0;
     final ret = <int>[];
@@ -331,13 +362,16 @@ class NostrService {
   static String? _sanitizeImageUrl(dynamic url) {
     if (url is! String) return null;
     if (!url.startsWith('https://') && !url.startsWith('http://')) return null;
-    
+
     try {
       final uri = Uri.parse(url);
       final path = uri.path.toLowerCase();
       // Must end in a standard image extension to prevent endless streams/1GB payloads
-      if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || 
-          path.endsWith('.gif') || path.endsWith('.webp')) {
+      if (path.endsWith('.png') ||
+          path.endsWith('.jpg') ||
+          path.endsWith('.jpeg') ||
+          path.endsWith('.gif') ||
+          path.endsWith('.webp')) {
         return url;
       }
     } catch (_) {}

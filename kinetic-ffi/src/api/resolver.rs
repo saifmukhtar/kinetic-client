@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use tokio::sync::Mutex;
 
 /// (Removed local Reveal struct to use kinetic_core::types::Reveal directly)
-
+///
 /// The result of resolving a `kin://` URL.
 #[derive(Debug, Clone)]
 pub struct ResolvedKinDocument {
@@ -35,7 +35,7 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
-        .ok_or_else(|| ResolverError::NotInitialized)?;
+        .ok_or(ResolverError::NotInitialized)?;
 
     // Step 0 — Parse the URL properly
     let parsed_url = url::Url::parse(&kin_url)
@@ -56,14 +56,15 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
 // Fully-qualified domain name for DHT lookup.
     let fqdn = format!("{}.", clean);
 
-    static RESOLVER_CACHE: OnceLock<Mutex<HashMap<String, (libp2p::PeerId, String, std::time::Instant)>>> = OnceLock::new();
+    type CacheMap = HashMap<String, (libp2p::PeerId, String, std::time::Instant)>;
+    static RESOLVER_CACHE: OnceLock<Mutex<CacheMap>> = OnceLock::new();
     let cache_mutex = RESOLVER_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
     
     let cached_entry = {
         let mut cache = cache_mutex.lock().await;
         if let Some((peer_id, raw_json, timestamp)) = cache.get(&fqdn) {
             if timestamp.elapsed() < std::time::Duration::from_secs(5 * 60) {
-                Some((peer_id.clone(), raw_json.clone()))
+                Some((*peer_id, raw_json.clone()))
             } else {
                 cache.remove(&fqdn);
                 None
@@ -198,49 +199,7 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[tokio::test]
-    async fn test_resolve_uninitialized() {
-        // Assume NETWORK_CLIENT might not be initialized yet in this fresh test run
-        // If it is initialized, this will fail, but since tests run in parallel, it might be.
-        // We handle this by checking the error type conditionally, or just ensuring it doesn't panic.
-        let doc = resolve_kin_url(format!("letsgoitsanewkineticdomain{}", kinetic_core::types::DOT_TLD)).await;
-        match doc {
-            Err(ResolverError::NotInitialized) => {} // Expected if not initialized
-            Err(_) => {} // Other errors are fine (like NotFound) if it is initialized
-            Ok(_) => {} // Ok is also fine if by some miracle it resolves
-        }
-    }
-
-    #[tokio::test]
-    async fn test_resolve_invalid_url() {
-        crate::api::daemon::init_light_client("/tmp/kinetic_resolver_test".to_string(), None, None).await.unwrap_or_default();
-        let doc = resolve_kin_url("http://google.com".to_string()).await;
-        assert!(matches!(doc, Err(ResolverError::InvalidUrl(_))));
-    }
-
-    #[tokio::test]
-    async fn test_lookup_identity_invalid_url() {
-        crate::api::daemon::init_light_client("/tmp/kinetic_resolver_test2".to_string(), None, None).await.unwrap_or_default();
-        // Just checking that it properly formats the FQDN and attempts a lookup, 
-        // which will result in NotFound or Offline, not a panic.
-        let doc = lookup_identity("kin://invalid!name".to_string()).await;
-        assert!(matches!(doc, Err(ResolverError::NotFound(_)) | Err(ResolverError::Offline) | Err(ResolverError::Internal(_))));
-    }
-
-    #[tokio::test]
-    async fn test_resolve_not_found() {
-        crate::api::daemon::init_light_client("/tmp/kinetic_resolver_test3".to_string(), None, None).await.unwrap_or_default();
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        let doc = resolve_kin_url(format!("kin://thisdomaindoesnotexist12345{}", kinetic_core::types::DOT_TLD)).await;
-        println!("DOC RETURNED: {:?}", doc);
-        // Since we are likely offline or it doesn't exist
-        assert!(matches!(doc, Err(ResolverError::NotFound(_)) | Err(ResolverError::Offline) | Err(ResolverError::Internal(_))));
-    }
-}
 /// Looks up the identity details of a `kin://` URL without requiring a `PeerId` routing record.
 pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, ResolverError> {
     if !crate::api::daemon::NETWORK_CLIENT.initialized() {
@@ -256,7 +215,7 @@ pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, Res
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
-        .ok_or_else(|| ResolverError::NotInitialized)?;
+        .ok_or(ResolverError::NotInitialized)?;
 
     let clean = kin_url
         .trim_start_matches("kin://")
@@ -291,17 +250,15 @@ pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, Res
     let pubkey_hex: String = reveal.pubkey.iter().map(|b| format!("{:02x}", b)).collect();
 
     let mut profile = serde_json::Map::new();
-    if let Ok(zone) = kinetic_core::types::DnsZone::parse_payload(&reveal.payload) {
-        if let Some(records) = zone.records.get("@") {
+    if let Ok(zone) = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
+        && let Some(records) = zone.records.get("@") {
             for record in records {
-                if let kinetic_core::types::DnsRecord::TXT(txt) = record {
-                    if let Some((k, v)) = txt.split_once('=') {
+                if let kinetic_core::types::DnsRecord::TXT(txt) = record
+                    && let Some((k, v)) = txt.split_once('=') {
                         profile.insert(k.to_string(), serde_json::Value::String(v.to_string()));
                     }
-                }
             }
         }
-    }
 
     let identity_state = serde_json::json!({
         "status": "Verified",
@@ -318,4 +275,80 @@ pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, Res
         raw_json: serde_json::to_string_pretty(&identity_state).unwrap_or_default(),
         target_url: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_resolve_uninitialized() {
+        // Assume NETWORK_CLIENT might not be initialized yet in this fresh test run
+        // If it is initialized, this will fail, but since tests run in parallel, it might be.
+        // We handle this by checking the error type conditionally, or just ensuring it doesn't panic.
+        let doc = resolve_kin_url(format!(
+            "letsgoitsanewkineticdomain{}",
+            kinetic_core::types::DOT_TLD
+        ))
+        .await;
+        match doc {
+            Err(ResolverError::NotInitialized) => {} // Expected if not initialized
+            Err(_) => {} // Other errors are fine (like NotFound) if it is initialized
+            Ok(_) => {}  // Ok is also fine if by some miracle it resolves
+        }
+    }
+
+    #[tokio::test]
+    async fn test_resolve_invalid_url() {
+        crate::api::daemon::init_light_client("/tmp/kinetic_resolver_test".to_string(), None, None)
+            .await
+            .unwrap_or_default();
+        let doc = resolve_kin_url("http://google.com".to_string()).await;
+        assert!(matches!(doc, Err(ResolverError::InvalidUrl(_))));
+    }
+
+    #[tokio::test]
+    async fn test_lookup_identity_invalid_url() {
+        crate::api::daemon::init_light_client(
+            "/tmp/kinetic_resolver_test2".to_string(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_or_default();
+        // Just checking that it properly formats the FQDN and attempts a lookup,
+        // which will result in NotFound or Offline, not a panic.
+        let doc = lookup_identity("kin://invalid!name".to_string()).await;
+        assert!(matches!(
+            doc,
+            Err(ResolverError::NotFound(_))
+                | Err(ResolverError::Offline)
+                | Err(ResolverError::Internal(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_not_found() {
+        crate::api::daemon::init_light_client(
+            "/tmp/kinetic_resolver_test3".to_string(),
+            None,
+            None,
+        )
+        .await
+        .unwrap_or_default();
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        let doc = resolve_kin_url(format!(
+            "kin://thisdomaindoesnotexist12345{}",
+            kinetic_core::types::DOT_TLD
+        ))
+        .await;
+        println!("DOC RETURNED: {:?}", doc);
+        // Since we are likely offline or it doesn't exist
+        assert!(matches!(
+            doc,
+            Err(ResolverError::NotFound(_))
+                | Err(ResolverError::Offline)
+                | Err(ResolverError::Internal(_))
+        ));
+    }
 }

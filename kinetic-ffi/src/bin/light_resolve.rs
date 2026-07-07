@@ -38,17 +38,11 @@ async fn main() -> Result<()> {
     };
 
     // We don't have the exact PeerId of the daemon. Let's just dial the address directly without /p2p/
-    // wait, we can't use bootstrap_nodes without PeerId in Kad. 
+    // wait, we can't use bootstrap_nodes without PeerId in Kad.
     // Let's connect the swarm manually.
 
-    let (client, event_loop) = NetworkEventLoop::new(
-        config.clone(),
-        local_key,
-        storage,
-        drand_rx,
-        None,
-        None,
-    )?;
+    let (client, event_loop) =
+        NetworkEventLoop::new(config.clone(), local_key, storage, drand_rx, None, None)?;
 
     // Spawn event loop in background
     tokio::spawn(async move {
@@ -58,7 +52,7 @@ async fn main() -> Result<()> {
     // 4. Wait for libp2p to establish connection and identify to complete
     println!("[*] Waiting for libp2p bootstrap connection to establish...");
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    
+
     println!("[*] Querying Kademlia DHT for name: {}", name);
     let payload_result = client.resolve_redundant_payload(name).await;
 

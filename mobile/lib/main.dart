@@ -9,7 +9,7 @@ import 'package:kinetic/src/rust/frb_generated.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     await RustLib.init();
   } catch (e) {
@@ -26,14 +26,10 @@ void main() async {
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('Native/Platform Error: \$error');
     // Prevents the app from instantly crashing to OS on unhandled async FFI errors
-    return true; 
+    return true;
   };
 
-  runApp(
-    const ProviderScope(
-      child: KineticApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: KineticApp()));
 }
 
 class KineticApp extends ConsumerWidget {
@@ -42,7 +38,7 @@ class KineticApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    
+
     return MaterialApp.router(
       title: 'Kinetic',
       debugShowCheckedModeBanner: false,

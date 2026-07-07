@@ -33,10 +33,9 @@ class AppTheme {
         surface: surface,
         error: error,
       ),
-      textTheme: GoogleFonts.outfitTextTheme(base.textTheme).apply(
-        bodyColor: textPrimary,
-        displayColor: textPrimary,
-      ),
+      textTheme: GoogleFonts.outfitTextTheme(
+        base.textTheme,
+      ).apply(bodyColor: textPrimary, displayColor: textPrimary),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent, // For glassmorphism
         surfaceTintColor: Colors.transparent,
@@ -71,7 +70,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: primary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         hintStyle: const TextStyle(color: textHint, fontSize: 15),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -79,7 +81,9 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 16),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),

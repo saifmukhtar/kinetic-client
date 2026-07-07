@@ -62,23 +62,28 @@ class _BrowserPageState extends State<BrowserPage>
             _isLoading = true;
             _loadingProgress = 0;
           }),
-          onProgress: (progress) =>
-              setState(() => _loadingProgress = progress),
+          onProgress: (progress) => setState(() => _loadingProgress = progress),
           onPageFinished: (_) => setState(() => _isLoading = false),
           onHttpError: (error) {
             setState(() {
               _isLoading = false;
-              _controller.loadHtmlString(_errorHtml(
+              _controller.loadHtmlString(
+                _errorHtml(
                   'Peer Unreachable',
-                  'The site failed to load (HTTP ${error.response?.statusCode ?? 502}).'));
+                  'The site failed to load (HTTP ${error.response?.statusCode ?? 502}).',
+                ),
+              );
             });
           },
           onWebResourceError: (error) {
             setState(() {
               _isLoading = false;
-              _controller.loadHtmlString(_errorHtml(
+              _controller.loadHtmlString(
+                _errorHtml(
                   'Connection Failed',
-                  'Could not connect to the Kinetic peer. The node may be offline.'));
+                  'Could not connect to the Kinetic peer. The node may be offline.',
+                ),
+              );
             });
           },
           onSslAuthError: (error) async {
@@ -113,7 +118,7 @@ class _BrowserPageState extends State<BrowserPage>
   Future<void> _initWebView() async {
     final cookieManager = WebViewCookieManager();
     final token = await getBridgeToken();
-    
+
     await cookieManager.setCookie(
       WebViewCookie(
         name: 'bridge_token',
@@ -122,7 +127,7 @@ class _BrowserPageState extends State<BrowserPage>
         path: '/',
       ),
     );
-    
+
     await _controller.loadRequest(Uri.parse(widget.site.targetUrl));
   }
 
@@ -150,7 +155,8 @@ class _BrowserPageState extends State<BrowserPage>
     }
   }
 
-  String _errorHtml(String title, String message) => '''
+  String _errorHtml(String title, String message) =>
+      '''
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -240,7 +246,9 @@ class _BrowserPageState extends State<BrowserPage>
           // Progress bar
           if (_isLoading)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: LinearProgressIndicator(
                 value: _loadingProgress / 100,
                 backgroundColor: Colors.transparent,
@@ -254,7 +262,11 @@ class _BrowserPageState extends State<BrowserPage>
               children: [
                 // Back button
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_rounded, size: 18, color: AppTheme.textSecondary),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_rounded,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
                   onPressed: () async {
                     if (await _controller.canGoBack()) {
                       _controller.goBack();
@@ -277,7 +289,10 @@ class _BrowserPageState extends State<BrowserPage>
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.surface.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(16),
@@ -286,14 +301,27 @@ class _BrowserPageState extends State<BrowserPage>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? Icons.lock_rounded : Icons.public_rounded,
-                            color: widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? AppTheme.success : AppTheme.textSecondary,
+                            widget.site.kinUrl.startsWith(
+                                  '${AppConstants.tld}://',
+                                )
+                                ? Icons.lock_rounded
+                                : Icons.public_rounded,
+                            color:
+                                widget.site.kinUrl.startsWith(
+                                  '${AppConstants.tld}://',
+                                )
+                                ? AppTheme.success
+                                : AppTheme.textSecondary,
                             size: 13,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? '${widget.site.displayName}${AppConstants.dotTld}' : widget.site.kinUrl,
+                              widget.site.kinUrl.startsWith(
+                                    '${AppConstants.tld}://',
+                                  )
+                                  ? '${widget.site.displayName}${AppConstants.dotTld}'
+                                  : widget.site.kinUrl,
                               style: GoogleFonts.firaCode(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -314,9 +342,16 @@ class _BrowserPageState extends State<BrowserPage>
                       ? SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary.withValues(alpha: 0.7)),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primary.withValues(alpha: 0.7),
+                          ),
                         )
-                      : const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.textSecondary),
+                      : const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                          color: AppTheme.textSecondary,
+                        ),
                   onPressed: _isLoading ? null : () => _controller.reload(),
                   tooltip: 'Refresh',
                 ),
@@ -342,10 +377,7 @@ class _BrowserPageState extends State<BrowserPage>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primary,
-              AppTheme.primaryLight,
-            ],
+            colors: [AppTheme.primary, AppTheme.primaryLight],
           ),
           boxShadow: [
             BoxShadow(
@@ -355,11 +387,7 @@ class _BrowserPageState extends State<BrowserPage>
             ),
           ],
         ),
-        child: const Icon(
-          Icons.apps_rounded,
-          color: Colors.white,
-          size: 24,
-        ),
+        child: const Icon(Icons.apps_rounded, color: Colors.white, size: 24),
       ),
     );
   }
@@ -383,7 +411,9 @@ class _BrowserPageState extends State<BrowserPage>
                 color: AppTheme.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                    color: AppTheme.primary.withValues(alpha: 0.3), width: 1.5),
+                  color: AppTheme.primary.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: AppTheme.primary.withValues(alpha: 0.15),
@@ -431,11 +461,12 @@ class _BrowserPageState extends State<BrowserPage>
                   ),
 
                   const Divider(
-                      height: 16,
-                      thickness: 0.5,
-                      color: AppTheme.border,
-                      indent: 8,
-                      endIndent: 8),
+                    height: 16,
+                    thickness: 0.5,
+                    color: AppTheme.border,
+                    indent: 8,
+                    endIndent: 8,
+                  ),
 
                   // Close browser button
                   _buildNavItem(
@@ -465,8 +496,8 @@ class _BrowserPageState extends State<BrowserPage>
     final color = isDanger
         ? AppTheme.error
         : isActive
-            ? AppTheme.primary
-            : AppTheme.textSecondary;
+        ? AppTheme.primary
+        : AppTheme.textSecondary;
 
     return Material(
       color: Colors.transparent,
@@ -487,8 +518,7 @@ class _BrowserPageState extends State<BrowserPage>
                 label,
                 style: GoogleFonts.outfit(
                   fontSize: 15,
-                  fontWeight:
-                      isActive ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
                   color: color,
                 ),
               ),

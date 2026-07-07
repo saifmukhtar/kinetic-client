@@ -1,18 +1,17 @@
-/// Bootstrap configuration for the Kinetic Light Client.
-///
-/// This module is the single source of truth for how the mobile client
-/// discovers the Kinetic network. It mirrors the bootstrap strategy used
-/// by `kinetic-daemon/src/config.rs`:
-///
-///   1. Hardcoded IP multiaddrs — fast, censorship-resistant, always available
-///   2. Web2 DNS seed domain lookup — flexible, allows new nodes to be added
-///      without shipping an app update
-///
-/// Both methods are used together so that if the AWS IPs ever change, the
-/// DNS seed discovery will find the new nodes automatically.
+//! Bootstrap configuration for the Kinetic Light Client.
+//!
+//! This module is the single source of truth for how the mobile client
+//! discovers the Kinetic network. It mirrors the bootstrap strategy used
+//! by `kinetic-daemon/src/config.rs`:
+//!
+//!   1. Hardcoded IP multiaddrs — fast, censorship-resistant, always available
+//!   2. Web2 DNS seed domain lookup — flexible, allows new nodes to be added
+//!      without shipping an app update
+//!
+//! Both methods are used together so that if the AWS IPs ever change, the
+//! DNS seed discovery will find the new nodes automatically.
 
-/// Returns the hardcoded production bootstrap nodes.
-/// These are the same multiaddrs as in `kinetic-daemon/src/config.rs`.
+/// Returns the primary bootstrap nodes for the live Kinetic network.
 pub fn production_bootstrap_nodes() -> Vec<String> {
     vec![
         "/ip4/44.219.188.204/tcp/6070/p2p/12D3KooWJkn8Dgb33N2p9sLBNX9Eg8W8whgdjLs2YJxWuTme7ZSs"
@@ -55,14 +54,20 @@ mod tests {
         assert!(!nodes.is_empty(), "Bootstrap nodes should not be empty");
         for node in nodes {
             assert!(node.contains("/p2p/"), "Node should contain a peer ID");
-            assert!(node.contains("/ip4/"), "Node should contain an IPv4 address");
+            assert!(
+                node.contains("/ip4/"),
+                "Node should contain an IPv4 address"
+            );
         }
     }
 
     #[test]
     fn test_seed_domains() {
         let domains = seed_domains();
-        assert!(domains.is_empty(), "Seed domains should be empty for mobile to prevent DNS spoofing");
+        assert!(
+            domains.is_empty(),
+            "Seed domains should be empty for mobile to prevent DNS spoofing"
+        );
     }
 
     #[test]

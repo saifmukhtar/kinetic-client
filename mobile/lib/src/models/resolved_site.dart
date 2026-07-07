@@ -1,4 +1,5 @@
 import 'package:kinetic/src/constants.dart';
+
 /// Data model for a successfully resolved .kin site.
 class ResolvedSite {
   final String kinUrl;

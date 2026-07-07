@@ -28,7 +28,9 @@ class _ManageKinTabState extends State<ManageKinTab> {
     super.initState();
     _loadDomains();
     _initConnectivity();
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       if (results.contains(ConnectivityResult.none)) {
         setState(() => _isConnected = false);
       } else {
@@ -114,11 +116,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
             // Header
             Row(
               children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: 48,
-                  height: 48,
-                ),
+                Image.asset('assets/images/logo.png', width: 48, height: 48),
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,7 +131,10 @@ class _ManageKinTabState extends State<ManageKinTab> {
                     ),
                     const Text(
                       'Your decentralized identities',
-                      style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -186,22 +187,31 @@ class _ManageKinTabState extends State<ManageKinTab> {
                 decoration: BoxDecoration(
                   color: AppTheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: AppTheme.border.withValues(alpha: 0.5),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
-                    )
+                    ),
                   ],
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.layers_clear_rounded, size: 48, color: AppTheme.textHint.withValues(alpha: 0.5)),
+                    Icon(
+                      Icons.layers_clear_rounded,
+                      size: 48,
+                      color: AppTheme.textHint.withValues(alpha: 0.5),
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'No domains owned yet',
-                      style: TextStyle(color: AppTheme.textHint, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: AppTheme.textHint,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -211,7 +221,8 @@ class _ManageKinTabState extends State<ManageKinTab> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _ownedDomains.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final domain = _ownedDomains[index];
                   return Container(
@@ -219,7 +230,9 @@ class _ManageKinTabState extends State<ManageKinTab> {
                     decoration: BoxDecoration(
                       color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppTheme.border.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -229,7 +242,11 @@ class _ManageKinTabState extends State<ManageKinTab> {
                             color: AppTheme.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.language_rounded, color: AppTheme.primary, size: 24),
+                          child: const Icon(
+                            Icons.language_rounded,
+                            color: AppTheme.primary,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -244,7 +261,11 @@ class _ManageKinTabState extends State<ManageKinTab> {
                             ),
                           ),
                         ),
-                        const Icon(Icons.verified_rounded, color: AppTheme.success, size: 24),
+                        const Icon(
+                          Icons.verified_rounded,
+                          color: AppTheme.success,
+                          size: 24,
+                        ),
                       ],
                     ),
                   );
@@ -256,10 +277,14 @@ class _ManageKinTabState extends State<ManageKinTab> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _isConnected ? AppTheme.success.withValues(alpha: 0.1) : AppTheme.error.withValues(alpha: 0.1),
+                color: _isConnected
+                    ? AppTheme.success.withValues(alpha: 0.1)
+                    : AppTheme.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: _isConnected ? AppTheme.success.withValues(alpha: 0.3) : AppTheme.error.withValues(alpha: 0.3),
+                  color: _isConnected
+                      ? AppTheme.success.withValues(alpha: 0.3)
+                      : AppTheme.error.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -267,11 +292,15 @@ class _ManageKinTabState extends State<ManageKinTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _isConnected ? AppTheme.success.withValues(alpha: 0.2) : AppTheme.error.withValues(alpha: 0.2),
+                      color: _isConnected
+                          ? AppTheme.success.withValues(alpha: 0.2)
+                          : AppTheme.error.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      _isConnected ? Icons.wifi_tethering_rounded : Icons.wifi_off_rounded,
+                      _isConnected
+                          ? Icons.wifi_tethering_rounded
+                          : Icons.wifi_off_rounded,
                       color: _isConnected ? AppTheme.success : AppTheme.error,
                       size: 28,
                     ),
@@ -282,19 +311,29 @@ class _ManageKinTabState extends State<ManageKinTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _isConnected ? 'Connected to Network' : 'Disconnected',
+                          _isConnected
+                              ? 'Connected to Network'
+                              : 'Disconnected',
                           style: GoogleFonts.outfit(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: _isConnected ? AppTheme.success : AppTheme.error,
+                            color: _isConnected
+                                ? AppTheme.success
+                                : AppTheme.error,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _isConnected ? 'Connected to P2P nodes' : 'No internet connection',
+                          _isConnected
+                              ? 'Connected to P2P nodes'
+                              : 'No internet connection',
                           style: TextStyle(
                             fontSize: 14,
-                            color: (_isConnected ? AppTheme.success : AppTheme.error).withValues(alpha: 0.8),
+                            color:
+                                (_isConnected
+                                        ? AppTheme.success
+                                        : AppTheme.error)
+                                    .withValues(alpha: 0.8),
                           ),
                         ),
                       ],

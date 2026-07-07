@@ -20,22 +20,24 @@ void callbackDispatcher() {
 
       // Must initialize rust bridge in the background isolate
       await RustLib.init();
-      
+
       final prefs = await SharedPreferences.getInstance();
       final namesList = prefs.getStringList('delegated_names') ?? [];
-      
+
       bool allSuccess = true;
 
       for (final name in namesList) {
         // Use SecureStorageService to handle Local Storage Wipe (156) gracefully
-        final privateKeyStr = await SecureStorageService.read('private_key_$name');
-        
+        final privateKeyStr = await SecureStorageService.read(
+          'private_key_$name',
+        );
+
         if (privateKeyStr != null) {
           final privateKeyBytes = privateKeyStr
               .split(',')
               .map((e) => int.parse(e))
               .toList();
-          
+
           final success = await broadcastMobileHeartbeat(
             name: name,
             privateKeyBytes: privateKeyBytes,
@@ -43,7 +45,7 @@ void callbackDispatcher() {
           if (!success) allSuccess = false;
         }
       }
-        
+
       debugPrint("Background Task Heartbeat status: $allSuccess");
       return Future.value(allSuccess);
     } catch (e) {
@@ -57,9 +59,7 @@ class BackgroundTasks {
   static const String heartbeatTask = "kinetic_heartbeat_task";
 
   static Future<void> init() async {
-    await Workmanager().initialize(
-      callbackDispatcher,
-    );
+    await Workmanager().initialize(callbackDispatcher);
   }
 
   static void scheduleHeartbeat() {
@@ -68,7 +68,8 @@ class BackgroundTasks {
       heartbeatTask,
       frequency: const Duration(hours: 12),
       constraints: Constraints(
-        networkType: NetworkType.connected, // Only run when connected to internet
+        networkType:
+            NetworkType.connected, // Only run when connected to internet
         requiresBatteryNotLow: true,
       ),
       existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,

@@ -17,21 +17,21 @@ void main() {
         errorMessage: 'error',
         isRooted: true,
       );
-      
+
       expect(updated.status, DaemonStatus.running);
       expect(updated.errorMessage, 'error');
       expect(updated.isRooted, true);
     });
-    
+
     test('copyWith keeps old fields if not provided', () {
       const state = DaemonState(
         status: DaemonStatus.error,
         errorMessage: 'old error',
         isRooted: true,
       );
-      
+
       final updated = state.copyWith(status: DaemonStatus.running);
-      
+
       expect(updated.status, DaemonStatus.running);
       expect(updated.errorMessage, 'old error');
       expect(updated.isRooted, true);

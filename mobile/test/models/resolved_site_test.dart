@@ -9,7 +9,7 @@ void main() {
         targetUrl: 'https://example.com',
         trustStateJson: '{}',
       );
-      
+
       expect(site.displayName, 'example');
     });
 
@@ -19,7 +19,7 @@ void main() {
         targetUrl: 'https://example.com',
         trustStateJson: '{}',
       );
-      
+
       expect(site.displayName, 'example');
     });
 
@@ -29,7 +29,7 @@ void main() {
         targetUrl: 'https://example.com',
         trustStateJson: '{}',
       );
-      
+
       // Since it doesn't start with kin://, replaceFirst won't match kin://
       // But it might strip .kin if we only strip suffix.
       expect(site.displayName, 'http://example');

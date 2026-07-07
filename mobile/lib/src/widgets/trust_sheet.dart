@@ -24,7 +24,8 @@ class TrustSheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => TrustSheet(kinName: kinName, trustStateJson: trustStateJson),
+      builder: (_) =>
+          TrustSheet(kinName: kinName, trustStateJson: trustStateJson),
     );
   }
 
@@ -95,7 +96,10 @@ class TrustSheet extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: AppTheme.textSecondary),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -108,7 +112,10 @@ class TrustSheet extends StatelessWidget {
           Expanded(
             child: Scrollbar(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 4,
+                ),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -118,8 +125,8 @@ class TrustSheet extends StatelessWidget {
                     border: Border.all(color: AppTheme.border),
                   ),
                   child: SelectableText(
-                    trustStateJson.length > 10000 
-                        ? '${trustStateJson.substring(0, 10000)}\n\n... [TRUNCATED FOR PERFORMANCE]' 
+                    trustStateJson.length > 10000
+                        ? '${trustStateJson.substring(0, 10000)}\n\n... [TRUNCATED FOR PERFORMANCE]'
                         : trustStateJson,
                     style: GoogleFonts.firaCode(
                       fontSize: 13,

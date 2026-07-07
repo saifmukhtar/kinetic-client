@@ -36,7 +36,10 @@ class _TetheredModeScreenState extends ConsumerState<TetheredModeScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 48.0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -91,7 +94,7 @@ class _TetheredModeScreenState extends ConsumerState<TetheredModeScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Explanation Card
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -132,7 +135,10 @@ class _TetheredModeScreenState extends ConsumerState<TetheredModeScreen> {
                     hintStyle: const TextStyle(color: AppTheme.textHint),
                     filled: true,
                     fillColor: AppTheme.surface,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: const BorderSide(color: AppTheme.border),
@@ -143,7 +149,10 @@ class _TetheredModeScreenState extends ConsumerState<TetheredModeScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+                      borderSide: const BorderSide(
+                        color: AppTheme.primary,
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -163,22 +172,16 @@ class _TetheredModeScreenState extends ConsumerState<TetheredModeScreen> {
                   ),
                   child: const Text(
                     'Tether to Node',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 16),
-                
+
                 TextButton(
                   onPressed: _onSkip,
                   child: const Text(
                     'Skip for now',
-                    style: TextStyle(
-                      color: AppTheme.textHint,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: AppTheme.textHint, fontSize: 16),
                   ),
                 ),
               ],

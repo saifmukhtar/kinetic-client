@@ -19,7 +19,7 @@ void main() {
         data: {'key': 'value'},
         error: const IdentityError(IdentityErrorKind.notFound, 'not found'),
       );
-      
+
       expect(updated.isResolving, true);
       expect(updated.url, 'test.kin');
       expect(updated.data, {'key': 'value'});
@@ -31,12 +31,9 @@ void main() {
       const state = IdentityState(
         error: IdentityError(IdentityErrorKind.network, 'network error'),
       );
-      
-      final cleared = state.copyWith(
-        isResolving: true,
-        clearError: true,
-      );
-      
+
+      final cleared = state.copyWith(isResolving: true, clearError: true);
+
       expect(cleared.isResolving, true);
       expect(cleared.error, isNull);
     });
