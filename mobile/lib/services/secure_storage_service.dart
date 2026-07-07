@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 class SecureStorageService {
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
     ),
   );
 

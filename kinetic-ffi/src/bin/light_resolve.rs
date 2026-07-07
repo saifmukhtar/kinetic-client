@@ -47,6 +47,7 @@ async fn main() -> Result<()> {
         storage,
         drand_rx,
         None,
+        None,
     )?;
 
     // Spawn event loop in background

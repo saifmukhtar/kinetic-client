@@ -51,6 +51,7 @@ dependencies:
   path_provider: ^2.1.5
   http: ^1.6.0
   connectivity_plus: ^7.2.0
+  freezed_annotation: ^3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +67,8 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
   flutter_native_splash: ^2.4.8
+  freezed: 3.2.4
+  build_runner: ^2.4.14
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -110,4 +113,11 @@ flutter:
 flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/images/logo.png"
+
+flutter_native_splash:
+  color: "#111827"
+  image: "assets/images/logo.png"
+  android: true
+  ios: true
