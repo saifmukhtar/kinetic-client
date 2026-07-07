@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:chrome",
+    "build:wasm": "cd ../kinetic/kinetic-wasm && wasm-pack build --target web --out-dir ../../extension/public/wasm",
     "build:chrome": "BROWSER=chrome tsc -b && BROWSER=chrome vite build && node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/manifest.json'));delete m.background.scripts;delete m.browser_specific_settings;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2))\"",
     "build:firefox": "BROWSER=firefox tsc -b && BROWSER=firefox vite build && node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/manifest.json'));m.permissions=m.permissions.filter(p=>p!=='offscreen');delete m.background.service_worker;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2))\"",
     "build:opera": "npm run build:chrome",
