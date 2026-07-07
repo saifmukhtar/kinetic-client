@@ -1,0 +1,42 @@
+{
+  "name": "extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:chrome",
+    "build:chrome": "BROWSER=chrome tsc -b && BROWSER=chrome vite build && node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/manifest.json'));delete m.background.scripts;delete m.browser_specific_settings;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2))\"",
+    "build:firefox": "BROWSER=firefox tsc -b && BROWSER=firefox vite build && node -e \"const fs=require('fs');const m=JSON.parse(fs.readFileSync('dist/manifest.json'));m.permissions=m.permissions.filter(p=>p!=='offscreen');delete m.background.service_worker;fs.writeFileSync('dist/manifest.json',JSON.stringify(m,null,2))\"",
+    "build:opera": "npm run build:chrome",
+    "test": "vitest run",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/chrome": "^0.2.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.5.2",
+    "jsdom": "^29.1.1",
+    "lucide-react": "^1.23.0",
+    "oxlint": "^1.71.0",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^4.3.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vite-plugin-static-copy": "^4.1.1",
+    "vitest": "^4.1.10"
+  }
+}
