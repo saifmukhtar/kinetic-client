@@ -22,7 +22,11 @@ class DaemonState {
     this.isRooted = false,
   });
 
-  DaemonState copyWith({DaemonStatus? status, String? errorMessage, bool? isRooted}) {
+  DaemonState copyWith({
+    DaemonStatus? status,
+    String? errorMessage,
+    bool? isRooted,
+  }) {
     return DaemonState(
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -51,16 +55,22 @@ class DaemonNotifier extends Notifier<DaemonState> with WidgetsBindingObserver {
 
   bool _isInitialized = false;
 
-  Future<void> startDaemon({String? overrideNpub, bool bypassRootCheck = false}) async {
-    if (state.status == DaemonStatus.running || state.status == DaemonStatus.starting) return;
-    
+  Future<void> startDaemon({
+    String? overrideNpub,
+    bool bypassRootCheck = false,
+  }) async {
+    if (state.status == DaemonStatus.running ||
+        state.status == DaemonStatus.starting) {
+      return;
+    }
+
     state = state.copyWith(status: DaemonStatus.starting);
     try {
       if (!_isInitialized) {
         await RustLib.init();
         _isInitialized = true;
       }
-      
+
       bool isRooted = false;
       try {
         isRooted = await checkDeviceRooted();
@@ -68,10 +78,13 @@ class DaemonNotifier extends Notifier<DaemonState> with WidgetsBindingObserver {
         // Fallback safely if FFI fails
       }
 
-      // If it's rooted, we force them to provide a desktop npub to tether to, 
+      // If it's rooted, we force them to provide a desktop npub to tether to,
       // UNLESS they explicitly clicked "Skip for now".
       if (isRooted && overrideNpub == null && !bypassRootCheck) {
-        state = state.copyWith(status: DaemonStatus.rootDetected, isRooted: true);
+        state = state.copyWith(
+          status: DaemonStatus.rootDetected,
+          isRooted: true,
+        );
         return;
       }
 
@@ -84,21 +97,28 @@ class DaemonNotifier extends Notifier<DaemonState> with WidgetsBindingObserver {
           identityBytes = base64Decode(identityString);
         } catch (_) {}
       }
-      
+
       final newIdentityBytes = await initDaemon(
-        appDir: appDir.path, 
+        appDir: appDir.path,
         identityBytes: identityBytes,
         targetDesktopNpub: overrideNpub,
       );
-      
+
       if (newIdentityBytes != null) {
-        await storage.write(key: 'kinetic_identity', value: base64Encode(newIdentityBytes));
+        await storage.write(
+          key: 'kinetic_identity',
+          value: base64Encode(newIdentityBytes),
+        );
       }
-      state = state.copyWith(status: DaemonStatus.running, errorMessage: null, isRooted: isRooted);
+      state = state.copyWith(
+        status: DaemonStatus.running,
+        errorMessage: null,
+        isRooted: isRooted,
+      );
     } catch (e) {
       state = state.copyWith(
-        status: DaemonStatus.error, 
-        errorMessage: parseKineticError(e)
+        status: DaemonStatus.error,
+        errorMessage: parseKineticError(e),
       );
     }
   }

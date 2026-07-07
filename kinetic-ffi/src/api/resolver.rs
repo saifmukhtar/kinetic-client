@@ -25,41 +25,47 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
     if !crate::api::daemon::NETWORK_CLIENT.initialized() {
         return Err(ResolverError::NotInitialized);
     }
-        
+
     static HAS_BOOTSTRAPPED: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
-    HAS_BOOTSTRAPPED.get_or_init(|| async {
-        println!("Waiting for Kademlia DHT bootstrap and identify to complete...");
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        true
-    }).await;
+    HAS_BOOTSTRAPPED
+        .get_or_init(|| async {
+            println!("Waiting for Kademlia DHT bootstrap and identify to complete...");
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            true
+        })
+        .await;
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
         .ok_or(ResolverError::NotInitialized)?;
 
     // Step 0 — Parse the URL properly
-    let parsed_url = url::Url::parse(&kin_url)
-        .map_err(|e| ResolverError::InvalidUrl(e.to_string()))?;
-        
+    let parsed_url =
+        url::Url::parse(&kin_url).map_err(|e| ResolverError::InvalidUrl(e.to_string()))?;
+
     if parsed_url.scheme() != "kin" {
-        return Err(ResolverError::InvalidUrl("Unsupported scheme, must be kin://".to_string()));
+        return Err(ResolverError::InvalidUrl(
+            "Unsupported scheme, must be kin://".to_string(),
+        ));
     }
-    
-    let host_str = parsed_url.host_str().ok_or_else(|| ResolverError::InvalidUrl("Missing host in kin:// URL".to_string()))?;
-    
+
+    let host_str = parsed_url
+        .host_str()
+        .ok_or_else(|| ResolverError::InvalidUrl("Missing host in kin:// URL".to_string()))?;
+
     let clean = if !host_str.contains('.') {
         format!("{}{}", host_str, kinetic_core::types::DOT_TLD)
     } else {
         host_str.to_string()
     };
 
-// Fully-qualified domain name for DHT lookup.
+    // Fully-qualified domain name for DHT lookup.
     let fqdn = format!("{}.", clean);
 
     type CacheMap = HashMap<String, (libp2p::PeerId, String, std::time::Instant)>;
     static RESOLVER_CACHE: OnceLock<Mutex<CacheMap>> = OnceLock::new();
     let cache_mutex = RESOLVER_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    
+
     let cached_entry = {
         let mut cache = cache_mutex.lock().await;
         if let Some((peer_id, raw_json, timestamp)) = cache.get(&fqdn) {
@@ -87,13 +93,16 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
                 return Err(ResolverError::Offline);
             }
             Err(e) => {
-                return Err(ResolverError::Internal(format!("DHT resolution failed for '{}': {}", clean, e)));
+                return Err(ResolverError::Internal(format!(
+                    "DHT resolution failed for '{}': {}",
+                    clean, e
+                )));
             }
         };
 
         // Step 2 — Parse the Reveal envelope to get the DnsZone.
-        let reveal: kinetic_core::types::Reveal =
-            serde_json::from_slice(&payload).map_err(|e| ResolverError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
+        let reveal: kinetic_core::types::Reveal = serde_json::from_slice(&payload)
+            .map_err(|e| ResolverError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
 
         // Validate VDF Expiry (1,000,000 rounds)
         let latest_drand = crate::api::daemon::fetch_latest_drand().await;
@@ -103,8 +112,9 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
             return Err(ResolverError::Expired(clean, age));
         }
 
-        let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
-            .map_err(|e| ResolverError::Internal(format!("Failed to parse DNS zone from DHT payload: {}", e)))?;
+        let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload).map_err(|e| {
+            ResolverError::Internal(format!("Failed to parse DNS zone from DHT payload: {}", e))
+        })?;
 
         // Step 3 — Extract the KID record from the apex (@) of the zone.
         let kid_str = zone
@@ -135,10 +145,20 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
         let manifest_payload = network_client
             .resolve_redundant_payload(&manifest_key)
             .await
-            .map_err(|e| ResolverError::Internal(format!("Failed to resolve manifest for KID {}: {}", kid_str, e)))?;
+            .map_err(|e| {
+                ResolverError::Internal(format!(
+                    "Failed to resolve manifest for KID {}: {}",
+                    kid_str, e
+                ))
+            })?;
 
         let manifest: kinetic_kid::CapabilityManifest = serde_json::from_slice(&manifest_payload)
-            .map_err(|e| ResolverError::Internal(format!("Failed to parse CapabilityManifest from DHT payload: {}", e)))?;
+            .map_err(|e| {
+            ResolverError::Internal(format!(
+                "Failed to parse CapabilityManifest from DHT payload: {}",
+                e
+            ))
+        })?;
 
         // Find the website service endpoint
         let service = manifest
@@ -161,8 +181,9 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
             }
             id.ok_or_else(|| ResolverError::Internal("No PeerId found in multiaddr".to_string()))?
         } else {
-            peer_id_str.parse::<libp2p::PeerId>()
-                .map_err(|e| ResolverError::Internal(format!("Invalid PeerId '{}': {}", peer_id_str, e)))?
+            peer_id_str.parse::<libp2p::PeerId>().map_err(|e| {
+                ResolverError::Internal(format!("Invalid PeerId '{}': {}", peer_id_str, e))
+            })?
         };
 
         let trust_state = serde_json::json!({
@@ -175,8 +196,11 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
         });
 
         let raw_json = serde_json::to_string_pretty(&trust_state).unwrap_or_default();
-        
-        cache_mutex.lock().await.insert(fqdn.clone(), (peer_id, raw_json.clone(), std::time::Instant::now()));
+
+        cache_mutex.lock().await.insert(
+            fqdn.clone(),
+            (peer_id, raw_json.clone(), std::time::Instant::now()),
+        );
         (peer_id, raw_json)
     };
 
@@ -199,19 +223,20 @@ pub async fn resolve_kin_url(kin_url: String) -> Result<ResolvedKinDocument, Res
     })
 }
 
-
 /// Looks up the identity details of a `kin://` URL without requiring a `PeerId` routing record.
 pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, ResolverError> {
     if !crate::api::daemon::NETWORK_CLIENT.initialized() {
         return Err(ResolverError::NotInitialized);
     }
-        
+
     static HAS_BOOTSTRAPPED_ID: tokio::sync::OnceCell<bool> = tokio::sync::OnceCell::const_new();
-    HAS_BOOTSTRAPPED_ID.get_or_init(|| async {
-        println!("Waiting for Kademlia DHT bootstrap and identify to complete...");
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        true
-    }).await;
+    HAS_BOOTSTRAPPED_ID
+        .get_or_init(|| async {
+            println!("Waiting for Kademlia DHT bootstrap and identify to complete...");
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            true
+        })
+        .await;
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
@@ -240,25 +265,30 @@ pub async fn lookup_identity(kin_url: String) -> Result<ResolvedKinDocument, Res
             return Err(ResolverError::Offline);
         }
         Err(e) => {
-            return Err(ResolverError::Internal(format!("DHT resolution failed for '{}': {}", clean, e)));
+            return Err(ResolverError::Internal(format!(
+                "DHT resolution failed for '{}': {}",
+                clean, e
+            )));
         }
     };
 
-    let reveal: kinetic_core::types::Reveal =
-        serde_json::from_slice(&payload).map_err(|e| ResolverError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
+    let reveal: kinetic_core::types::Reveal = serde_json::from_slice(&payload)
+        .map_err(|e| ResolverError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
 
     let pubkey_hex: String = reveal.pubkey.iter().map(|b| format!("{:02x}", b)).collect();
 
     let mut profile = serde_json::Map::new();
     if let Ok(zone) = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
-        && let Some(records) = zone.records.get("@") {
-            for record in records {
-                if let kinetic_core::types::DnsRecord::TXT(txt) = record
-                    && let Some((k, v)) = txt.split_once('=') {
-                        profile.insert(k.to_string(), serde_json::Value::String(v.to_string()));
-                    }
+        && let Some(records) = zone.records.get("@")
+    {
+        for record in records {
+            if let kinetic_core::types::DnsRecord::TXT(txt) = record
+                && let Some((k, v)) = txt.split_once('=')
+            {
+                profile.insert(k.to_string(), serde_json::Value::String(v.to_string()));
             }
         }
+    }
 
     let identity_state = serde_json::json!({
         "status": "Verified",

@@ -244,9 +244,10 @@ pub(crate) async fn get_or_spawn_transport_bridge(
             .min_by_key(|(_, info)| info.last_accessed)
             .map(|(k, _)| k.clone());
         if let Some(old_peer) = oldest
-            && let Some(info) = map.remove(&old_peer) {
-                let _ = info.shutdown_tx.send(());
-            }
+            && let Some(info) = map.remove(&old_peer)
+        {
+            let _ = info.shutdown_tx.send(());
+        }
     }
 
     let client = NETWORK_CLIENT
@@ -338,18 +339,19 @@ async fn handle_bridge_request(
 
     let mut cleaned_cookies = Vec::new();
     if let Some(cookie) = req.headers().get(axum::http::header::COOKIE)
-        && let Ok(cookie_str) = cookie.to_str() {
-            for part in cookie_str.split(';') {
-                let part = part.trim();
-                if part.starts_with("bridge_token=") {
-                    if part == format!("bridge_token={}", token) {
-                        is_authorized = true;
-                    }
-                } else if !part.is_empty() {
-                    cleaned_cookies.push(part.to_string());
+        && let Ok(cookie_str) = cookie.to_str()
+    {
+        for part in cookie_str.split(';') {
+            let part = part.trim();
+            if part.starts_with("bridge_token=") {
+                if part == format!("bridge_token={}", token) {
+                    is_authorized = true;
                 }
+            } else if !part.is_empty() {
+                cleaned_cookies.push(part.to_string());
             }
         }
+    }
 
     if !is_authorized {
         return Ok(Response::builder()
@@ -475,12 +477,13 @@ async fn fetch_ntp_time() -> Option<u64> {
     let mut recv_buf = [0u8; 48];
     if let Ok(Ok((size, _))) =
         timeout(Duration::from_secs(2), socket.recv_from(&mut recv_buf)).await
-        && size == 48 {
-            let secs = u32::from_be_bytes(recv_buf[40..44].try_into().unwrap()) as u64;
-            if secs > 2208988800 {
-                return Some(secs - 2208988800);
-            }
+        && size == 48
+    {
+        let secs = u32::from_be_bytes(recv_buf[40..44].try_into().unwrap()) as u64;
+        if secs > 2208988800 {
+            return Some(secs - 2208988800);
         }
+    }
     None
 }
 
@@ -499,9 +502,10 @@ pub async fn fetch_latest_drand() -> u64 {
 
     for url in drand_urls.iter() {
         if let Ok(resp) = client.get(*url).send().await
-            && let Ok(json) = resp.json::<DrandResponse>().await {
-                return json.round;
-            }
+            && let Ok(json) = resp.json::<DrandResponse>().await
+        {
+            return json.round;
+        }
     }
 
     let genesis_time = 1692803367u64;

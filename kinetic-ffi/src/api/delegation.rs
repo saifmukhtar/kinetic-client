@@ -114,10 +114,11 @@ pub async fn prepare_vdf_request_nostr(
     for url in drand_urls.iter() {
         if let Ok(resp) = reqwest::get(*url).await
             && let Ok(json) = resp.json::<serde_json::Value>().await
-                && let Some(r) = json["randomness"].as_str() {
-                    randomness = r.to_string();
-                    break;
-                }
+            && let Some(r) = json["randomness"].as_str()
+        {
+            randomness = r.to_string();
+            break;
+        }
     }
     if randomness.is_empty() {
         return Err(DelegationError::DrandFetchFailed);

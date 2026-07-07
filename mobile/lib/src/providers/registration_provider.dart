@@ -12,13 +12,7 @@ import 'package:kinetic/src/rust/api/delegation.dart';
 import 'package:kinetic/src/utils/error_handler.dart';
 import 'package:http/http.dart' as http;
 
-enum RegistrationErrorKind {
-  attestation,
-  request,
-  vdf,
-  network,
-  unknown
-}
+enum RegistrationErrorKind { attestation, request, vdf, network, unknown }
 
 class RegistrationError {
   final RegistrationErrorKind kind;
@@ -41,7 +35,7 @@ class RegistrationState {
   final RegistrationStatus? failedStep;
   final RegistrationError? error;
   final String? desktopUrl;
-  
+
   // For polling VDF
   final String? challengeHex;
 
@@ -80,7 +74,7 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     _resumePendingVdf(); // For Case 103
     return const RegistrationState();
   }
-  
+
   Future<void> _initDesktopUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUrl = prefs.getString('saved_desktop_url');
@@ -104,9 +98,11 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         final desktopUrl = data['desktopUrl'] as String;
         final name = data['name'] as String;
         final challengeHex = data['challengeHex'] as String;
-        
+
         final saltStr = data['salt'] as String;
-        final salt = Uint8List.fromList(saltStr.split(',').map(int.parse).toList());
+        final salt = Uint8List.fromList(
+          saltStr.split(',').map(int.parse).toList(),
+        );
         final drandPulse = BigInt.parse(data['drandPulse'] as String);
         final drandRandomness = data['drandRandomness'] as String;
         final iterations = BigInt.parse(data['iterations'] as String);
@@ -122,7 +118,7 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         const secureStorage = FlutterSecureStorage();
         final keyStr = await secureStorage.read(key: 'private_key_$name');
         if (keyStr == null) return;
-        
+
         final privateKeyBytes = keyStr.split(',').map(int.parse).toList();
 
         state = state.copyWith(
@@ -131,7 +127,8 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
           desktopUrl: desktopUrl,
         );
 
-        if (desktopUrl.startsWith('npub') || (desktopUrl.length == 64 && !desktopUrl.contains(':'))) {
+        if (desktopUrl.startsWith('npub') ||
+            (desktopUrl.length == 64 && !desktopUrl.contains(':'))) {
           _waitForNostrDm(desktopUrl, name, privateKeyBytes, jobResponse);
         } else {
           _startPolling(desktopUrl, name, privateKeyBytes, jobResponse);
@@ -142,7 +139,11 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     }
   }
 
-  Future<void> _savePendingVdf(String desktopUrl, String name, VdfJobResponse jobResponse) async {
+  Future<void> _savePendingVdf(
+    String desktopUrl,
+    String name,
+    VdfJobResponse jobResponse,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final data = {
       'desktopUrl': desktopUrl,
@@ -161,47 +162,60 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     await prefs.remove('pending_vdf');
   }
 
-  Future<void> _waitForNostrDm(String desktopUrl, String name, List<int> privateKeyBytes, VdfJobResponse vdfJobResponse) async {
+  Future<void> _waitForNostrDm(
+    String desktopUrl,
+    String name,
+    List<int> privateKeyBytes,
+    VdfJobResponse vdfJobResponse,
+  ) async {
     String desktopHex = desktopUrl;
     if (desktopUrl.startsWith('npub1')) {
       desktopHex = NostrService.decodeNpub(desktopUrl);
     }
-    final encryptedReply = await NostrService.listenForDm(desktopUrl, desktopHex);
-    
+    final encryptedReply = await NostrService.listenForDm(
+      desktopUrl,
+      desktopHex,
+    );
+
     if (encryptedReply != null) {
       final proofBytes = await decryptVdfProofNostr(
-        desktopNpub: desktopUrl, 
-        privateKeyBytes: privateKeyBytes, 
-        encryptedContent: encryptedReply
+        desktopNpub: desktopUrl,
+        privateKeyBytes: privateKeyBytes,
+        encryptedContent: encryptedReply,
       );
-      
+
       await _broadcastReveal(name, privateKeyBytes, vdfJobResponse, proofBytes);
     } else {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.pollingVdf,
-        error: const RegistrationError(RegistrationErrorKind.vdf, "Failed to receive VDF proof from node"),
+        error: const RegistrationError(
+          RegistrationErrorKind.vdf,
+          "Failed to receive VDF proof from node",
+        ),
       );
     }
   }
 
-
   Future<void> startRegistration(String name) async {
     final desktopUrl = state.desktopUrl ?? 'auto';
-    
+
     // 1. Hardware Attestation
     state = state.copyWith(status: RegistrationStatus.attesting);
     final trustTier = await HardwareAttestationService.verifyDevice();
-    
+
     // Only block rooted devices from using the 'auto' matchmaking pool
     final isAutoMatchmaking = desktopUrl == 'auto';
 
     if (trustTier == TrustTier.untrusted) {
       if (isAutoMatchmaking) {
         state = state.copyWith(
-          status: RegistrationStatus.error, 
+          status: RegistrationStatus.error,
           failedStep: RegistrationStatus.attesting,
-          error: const RegistrationError(RegistrationErrorKind.attestation, "Rooted devices cannot use public matchmaking. Please specify a manual Node Address or Npub."),
+          error: const RegistrationError(
+            RegistrationErrorKind.attestation,
+            "Rooted devices cannot use public matchmaking. Please specify a manual Node Address or Npub.",
+          ),
         );
         return;
       }
@@ -215,7 +229,10 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.attesting,
-        error: const RegistrationError(RegistrationErrorKind.attestation, "Maximum limit of 3 names reached for this device."),
+        error: const RegistrationError(
+          RegistrationErrorKind.attestation,
+          "Maximum limit of 3 names reached for this device.",
+        ),
       );
       return;
     }
@@ -224,9 +241,9 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       // Generate a secure random Ed25519 private key scalar for this specific domain
       final random = dart_math.Random.secure();
       final privateKeyBytes = List.generate(32, (_) => random.nextInt(256));
-      
+
       String targetNode = desktopUrl;
-      
+
       if (desktopUrl == 'auto') {
         state = state.copyWith(status: RegistrationStatus.requestingVdf);
         final discoveredHex = await NostrService.discoverPublicMiner();
@@ -234,23 +251,27 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
           state = state.copyWith(
             status: RegistrationStatus.error,
             failedStep: RegistrationStatus.requestingVdf,
-            error: const RegistrationError(RegistrationErrorKind.request, "Could not discover any public miners on the network."),
+            error: const RegistrationError(
+              RegistrationErrorKind.request,
+              "Could not discover any public miners on the network.",
+            ),
           );
           return;
         }
         targetNode = discoveredHex;
       }
 
-      if (targetNode.startsWith('npub') || (targetNode.length == 64 && !targetNode.contains(':'))) {
+      if (targetNode.startsWith('npub') ||
+          (targetNode.length == 64 && !targetNode.contains(':'))) {
         // --- NOSTR FLOW ---
         state = state.copyWith(status: RegistrationStatus.requestingVdf);
         final result = await prepareVdfRequestNostr(
           desktopNpub: targetNode,
           name: name,
           privateKeyBytes: privateKeyBytes,
-          difficultyBits: 20, 
+          difficultyBits: 20,
         );
-        
+
         final vdfJobResponse = result.$1;
         final eventJson = result.$2;
 
@@ -262,9 +283,12 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         );
 
         const secureStorage = FlutterSecureStorage();
-        await secureStorage.write(key: 'private_key_$name', value: privateKeyBytes.join(','));
+        await secureStorage.write(
+          key: 'private_key_$name',
+          value: privateKeyBytes.join(','),
+        );
         await _savePendingVdf(targetNode, name, vdfJobResponse);
-        
+
         _waitForNostrDm(targetNode, name, privateKeyBytes, vdfJobResponse);
       } else {
         // --- HTTP FLOW (Local Node) ---
@@ -282,21 +306,32 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
         );
 
         const secureStorage = FlutterSecureStorage();
-        await secureStorage.write(key: 'private_key_$name', value: privateKeyBytes.join(','));
+        await secureStorage.write(
+          key: 'private_key_$name',
+          value: privateKeyBytes.join(','),
+        );
         await _savePendingVdf(desktopUrl, name, vdfJobResponse);
-        
+
         _startPolling(desktopUrl, name, privateKeyBytes, vdfJobResponse);
       }
     } catch (e) {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.requestingVdf,
-        error: RegistrationError(RegistrationErrorKind.request, parseKineticError(e)),
+        error: RegistrationError(
+          RegistrationErrorKind.request,
+          parseKineticError(e),
+        ),
       );
     }
   }
 
-  void _startPolling(String desktopUrl, String name, List<int> privateKeyBytes, VdfJobResponse jobResponse) {
+  void _startPolling(
+    String desktopUrl,
+    String name,
+    List<int> privateKeyBytes,
+    VdfJobResponse jobResponse,
+  ) {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       try {
@@ -307,7 +342,12 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
 
         if (proofBytes != null) {
           timer.cancel();
-          await _broadcastReveal(name, privateKeyBytes, jobResponse, proofBytes);
+          await _broadcastReveal(
+            name,
+            privateKeyBytes,
+            jobResponse,
+            proofBytes,
+          );
         }
       } catch (e) {
         // Ignore polling errors
@@ -315,9 +355,14 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
     });
   }
 
-  Future<void> _broadcastReveal(String name, List<int> privateKeyBytes, VdfJobResponse jobResponse, List<int> proofBytes) async {
+  Future<void> _broadcastReveal(
+    String name,
+    List<int> privateKeyBytes,
+    VdfJobResponse jobResponse,
+    List<int> proofBytes,
+  ) async {
     state = state.copyWith(status: RegistrationStatus.broadcasting);
-    
+
     try {
       final success = await broadcastMobileReveal(
         name: name,
@@ -337,22 +382,28 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
           namesList.add(name);
           await prefs.setStringList('delegated_names', namesList);
         }
-        
+
         await _clearPendingVdf();
-        
+
         state = state.copyWith(status: RegistrationStatus.success);
       } else {
         state = state.copyWith(
           status: RegistrationStatus.error,
           failedStep: RegistrationStatus.broadcasting,
-          error: const RegistrationError(RegistrationErrorKind.network, "Failed to broadcast reveal to DHT."),
+          error: const RegistrationError(
+            RegistrationErrorKind.network,
+            "Failed to broadcast reveal to DHT.",
+          ),
         );
       }
     } catch (e) {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.broadcasting,
-        error: RegistrationError(RegistrationErrorKind.network, parseKineticError(e)),
+        error: RegistrationError(
+          RegistrationErrorKind.network,
+          parseKineticError(e),
+        ),
       );
     }
   }
@@ -363,9 +414,10 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
   }
 }
 
-final registrationProvider = NotifierProvider<RegistrationNotifier, RegistrationState>(() {
-  return RegistrationNotifier();
-});
+final registrationProvider =
+    NotifierProvider<RegistrationNotifier, RegistrationState>(() {
+      return RegistrationNotifier();
+    });
 
 // --- HTTP Fallbacks ---
 Future<VdfJobResponse> requestVdfProofFromDesktop({
@@ -376,8 +428,12 @@ Future<VdfJobResponse> requestVdfProofFromDesktop({
 }) async {
   // Derive the Ed25519 verifying key (public key) from the private key bytes.
   // derivePublicKeyBytesSync is a #[frb(sync)] FFI call generated by flutter_rust_bridge.
-  final pubkeyBytes = derivePublicKeyBytesSync(privateKeyBytes: privateKeyBytes);
-  final pubkeyHex = pubkeyBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  final pubkeyBytes = derivePublicKeyBytesSync(
+    privateKeyBytes: privateKeyBytes,
+  );
+  final pubkeyHex = pubkeyBytes
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join();
 
   final res = await http.post(
     Uri.parse('$desktopUrl/vdf/request'),
@@ -386,9 +442,11 @@ Future<VdfJobResponse> requestVdfProofFromDesktop({
       'name': name,
       'difficulty': difficultyBits,
       'pubkey': pubkeyHex,
-    })
+    }),
   );
-  if (res.statusCode != 200) throw Exception("HTTP VDF Request Failed: ${res.statusCode} ${res.body}");
+  if (res.statusCode != 200) {
+    throw Exception("HTTP VDF Request Failed: ${res.statusCode} ${res.body}");
+  }
   final data = jsonDecode(res.body);
   return VdfJobResponse(
     challengeHex: data['challengeHex'],

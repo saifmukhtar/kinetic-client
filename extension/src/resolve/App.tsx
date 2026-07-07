@@ -23,7 +23,7 @@ export default function App() {
       urlObj = new URL(urlParam);
       targetHostname = urlObj.hostname;
       setTargetUrl(targetHostname);
-    } catch (e) {
+    } catch {
       targetHostname = urlParam;
       setTargetUrl(urlParam);
       // fallback mock url for pathname parsing

@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kinetic/main.dart';
 
-
 void main() {
   testWidgets('KineticApp initializes and builds without crashing', (
     WidgetTester tester,
