@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { ServerCrash, Loader2, Globe } from 'lucide-react'
-import init, { KineticNode } from '../../public/wasm/kinetic_wasm.js'
+import init, { KineticNode } from '@wasm/kinetic_wasm.js'
 
 export default function App() {
   const [error, setError] = useState<string | null>(null)

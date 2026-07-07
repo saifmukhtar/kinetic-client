@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import App from './App'
-import * as wasm from '../../public/wasm/kinetic_wasm.js'
+import * as wasm from '@wasm/kinetic_wasm.js'
 
 // Mock the lucide-react icons
 vi.mock('lucide-react', () => ({
@@ -11,7 +11,7 @@ vi.mock('lucide-react', () => ({
 }))
 
 // Mock the Wasm module
-vi.mock('../../public/wasm/kinetic_wasm.js', () => {
+vi.mock('@wasm/kinetic_wasm.js', () => {
   return {
     default: vi.fn().mockResolvedValue(undefined),
     KineticNode: vi.fn(),

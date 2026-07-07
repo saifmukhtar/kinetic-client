@@ -1,5 +1,5 @@
 // Keep-Alive Logic
-import init, { KineticNode } from '../../public/wasm/kinetic_wasm.js';
+import init, { KineticNode } from '@wasm/kinetic_wasm.js';
 
 let creating: Promise<void> | null = null;
 async function setupOffscreenDocument(path: string) {
