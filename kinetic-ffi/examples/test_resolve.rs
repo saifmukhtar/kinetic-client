@@ -5,13 +5,13 @@ use tokio;
 #[tokio::main]
 async fn main() {
     println!("Initializing light client...");
-    let result = init_light_client().await;
+    let result = init_light_client("/tmp".to_string(), None, None).await;
     println!("Init result: {:?}", result);
 
     println!("Waiting for network to connect...");
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     println!("Resolving saif.kin...");
-    let resolved = resolve_kin_url("kin://saif.kin".to_string()).await;
+    let resolved = resolve_kin_url(format!("kin://saif{}", kinetic_core::types::DOT_TLD).to_string()).await;
     println!("Resolve result: {:?}", resolved);
 }

@@ -10,7 +10,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
     // Resolve the kin URL
-    let doc = resolve_kin_url("letsgoitsanewkineticdomain.kin".to_string()).await?;
+    let doc = resolve_kin_url(format!("letsgoitsanewkineticdomain{}", kinetic_core::types::DOT_TLD).to_string()).await?;
     
     println!("Resolved Document:");
     println!("Raw JSON: {}", doc.raw_json);
