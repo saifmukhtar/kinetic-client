@@ -4,23 +4,31 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import 'error.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `get_or_spawn_transport_bridge`, `handle_bridge_request`
+// These functions are ignored because they are not marked as `pub`: `fetch_ntp_time`, `get_or_spawn_transport_bridge`, `handle_bridge_request`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `BridgeInfo`, `DrandResponse`
 
 /// Returns the current bridge authentication token.
 Future<String> getBridgeToken() =>
     RustLib.instance.api.crateApiDaemonGetBridgeToken();
 
+/// Natively checks the Android file system for known root binaries.
+/// This runs directly in Rust, bypassing the Flutter layer for higher security.
+Future<bool> checkDeviceRooted() =>
+    RustLib.instance.api.crateApiDaemonCheckDeviceRooted();
+
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
 Future<Uint8List?> initLightClient({
   required String appDir,
   Uint8List? identityBytes,
+  String? targetDesktopNpub,
 }) => RustLib.instance.api.crateApiDaemonInitLightClient(
   appDir: appDir,
   identityBytes: identityBytes,
+  targetDesktopNpub: targetDesktopNpub,
 );
 
 /// Backward-compatible alias — `frb_generated.rs` was code-generated calling this name.
@@ -28,9 +36,11 @@ Future<Uint8List?> initLightClient({
 Future<Uint8List?> initDaemon({
   required String appDir,
   Uint8List? identityBytes,
+  String? targetDesktopNpub,
 }) => RustLib.instance.api.crateApiDaemonInitDaemon(
   appDir: appDir,
   identityBytes: identityBytes,
+  targetDesktopNpub: targetDesktopNpub,
 );
 
 /// Expose manual reconnect for Flutter AppLifecycleState.resumed

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::api::error::IdentityError;
 
 
 /// Public identity information for a .kin name, shown in the Identity tab.
@@ -17,42 +17,42 @@ pub struct IdentityInfo {
 /// Looks up a .kin name in the Kinetic DHT and returns its public identity info.
 ///
 /// This is a read-only operation — it does not create or modify any data.
-pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
+pub async fn fetch_identity(name: String) -> Result<IdentityInfo, IdentityError> {
     if !crate::api::daemon::NETWORK_CLIENT.initialized() {
-        return Err(anyhow::anyhow!("Kinetic Light Client is not initialized"));
+        return Err(IdentityError::NotInitialized);
     }
 
     let network_client = crate::api::daemon::NETWORK_CLIENT
         .get()
-        .ok_or_else(|| anyhow::anyhow!("Network client not available"))?;
+        .ok_or_else(|| IdentityError::NotInitialized)?;
 
     // Normalize the name.
     let clean = name
         .trim_start_matches("kin://")
         .trim_end_matches('/')
-        .trim_end_matches(".kin");
-    let display_name = format!("{}.kin", clean);
+        .trim_end_matches(kinetic_core::types::DOT_TLD);
+    let display_name = format!("{}{}", clean, kinetic_core::types::DOT_TLD);
     let fqdn = format!("{}.", display_name);
 
     // DHT lookup.
     let payload = match network_client.resolve_redundant_payload(&fqdn).await {
         Ok(p) => p,
         Err(kinetic_core::error::ResolutionError::NotFound { .. }) => {
-            return Err(anyhow::anyhow!("'{}' was not found in the Kinetic network", display_name));
+            return Err(IdentityError::NotFound(display_name));
         }
         Err(kinetic_core::error::ResolutionError::Offline) => {
-            return Err(anyhow::anyhow!("You appear to be offline. Cannot connect to the Kinetic network."));
+            return Err(IdentityError::Offline);
         }
         Err(e) => {
-            return Err(anyhow::anyhow!("DHT lookup failed for '{}': {}", display_name, e));
+            return Err(IdentityError::Internal(format!("DHT lookup failed for '{}': {}", display_name, e)));
         }
     };
 
     let reveal: kinetic_core::types::Reveal =
-        serde_json::from_slice(&payload).context("Failed to parse DHT payload")?;
+        serde_json::from_slice(&payload).map_err(|e| IdentityError::Internal(format!("Failed to parse DHT payload: {}", e)))?;
 
     let zone = kinetic_core::types::DnsZone::parse_payload(&reveal.payload)
-        .context("Failed to parse DNS zone")?;
+        .map_err(|e| IdentityError::Internal(format!("Failed to parse DNS zone: {}", e)))?;
 
     // Extract the PeerId from the apex record.
     let peer_id = zone
@@ -68,10 +68,10 @@ pub async fn fetch_identity(name: String) -> Result<IdentityInfo> {
             })
         })
         .ok_or_else(|| {
-            anyhow::anyhow!(
+            IdentityError::Internal(format!(
                 "No PeerId record found for '{}'. The name is registered but no node is hosting it.",
                 display_name
-            )
+            ))
         })?;
 
     // Check VDF expiry
