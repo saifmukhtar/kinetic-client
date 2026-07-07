@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'src/rust/api/delegation.dart';
 import 'src/rust/frb_generated.dart';
 
@@ -60,7 +59,6 @@ class BackgroundTasks {
   static Future<void> init() async {
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: kDebugMode,
     );
   }
 

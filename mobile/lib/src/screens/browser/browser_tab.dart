@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:kinetic/src/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,7 +49,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
     _appLinks = AppLinks();
     
     void handleDeepLink(Uri uri) {
-      if (uri.scheme == 'kin' || uri.host.endsWith('.kin')) {
+      if (uri.scheme == 'kin' || uri.host.endsWith(AppConstants.dotTld)) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -97,16 +98,16 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
 
     if (sanitizedInput.startsWith('http://') || sanitizedInput.startsWith('https://')) {
       final uri = Uri.tryParse(sanitizedInput);
-      if (uri != null && uri.host.endsWith('.kin')) {
+      if (uri != null && uri.host.endsWith(AppConstants.dotTld)) {
         sanitizedInput = 'kin://${uri.host}${uri.path}';
         isKinetic = true;
       } else {
         isKinetic = false;
       }
-    } else if (sanitizedInput.startsWith('kin://')) {
+    } else if (sanitizedInput.startsWith('${AppConstants.tld}://')) {
       isKinetic = true;
     } else {
-      if (sanitizedInput.endsWith('.kin') || sanitizedInput.contains('.kin/')) {
+      if (sanitizedInput.endsWith(AppConstants.dotTld) || sanitizedInput.contains('${AppConstants.dotTld}/')) {
         sanitizedInput = 'kin://$sanitizedInput';
         isKinetic = true;
       } else if (sanitizedInput.contains('.')) {
@@ -191,7 +192,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
       String cleanMsg = msg.split('\n').first; // Strip stacktrace
       if (msg.contains('not found in the Kinetic network')) {
         kind = IdentityErrorKind.notFound;
-        cleanMsg = "Name '${sanitizedInput}' was not found in the Kinetic network. It may be unregistered.";
+        cleanMsg = "Name '$sanitizedInput' was not found in the Kinetic network. It may be unregistered.";
       } else if (msg.contains('offline') || msg.contains('timed out') || msg.contains('partitioned')) {
         kind = IdentityErrorKind.offline;
         cleanMsg = "You appear to be offline or the network is partitioned.";
@@ -219,7 +220,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                   center: const Alignment(0, -0.4),
                   radius: 1.5,
                   colors: [
-                    AppTheme.primary.withOpacity(0.08),
+                    AppTheme.primary.withValues(alpha: 0.08),
                     AppTheme.background,
                   ],
                 ),
@@ -242,11 +243,11 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppTheme.surface.withOpacity(0.5),
-                          border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+                          color: AppTheme.surface.withValues(alpha: 0.5),
+                          border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primary.withOpacity(0.1),
+                              color: AppTheme.primary.withValues(alpha: 0.1),
                               blurRadius: 32,
                               offset: const Offset(0, 16),
                             )
@@ -276,7 +277,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary.withOpacity(0.8),
+                        color: AppTheme.textSecondary.withValues(alpha: 0.8),
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -312,9 +313,9 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                           margin: const EdgeInsets.only(top: 24),
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           decoration: BoxDecoration(
-                            color: AppTheme.error.withOpacity(0.1),
+                            color: AppTheme.error.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.error.withOpacity(0.3)),
+                            border: Border.all(color: AppTheme.error.withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             children: [
@@ -361,7 +362,7 @@ class _BrowserTabState extends ConsumerState<BrowserTab> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: _recentSites.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final site = _recentSites[index];
                           return _RecentSiteCard(
@@ -405,9 +406,9 @@ class _RecentSiteCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
-                color: AppTheme.surface.withOpacity(0.6),
+                color: AppTheme.surface.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border.withOpacity(0.4)),
+                border: Border.all(color: AppTheme.border.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
@@ -417,14 +418,14 @@ class _RecentSiteCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AppTheme.primary.withOpacity(0.2),
-                          AppTheme.primaryLight.withOpacity(0.1),
+                          AppTheme.primary.withValues(alpha: 0.2),
+                          AppTheme.primaryLight.withValues(alpha: 0.1),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.primary.withOpacity(0.2)),
+                      border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
                     ),
                     child: const Icon(Icons.public_rounded, color: AppTheme.primary, size: 22),
                   ),
@@ -434,7 +435,7 @@ class _RecentSiteCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          site.kinUrl.startsWith('kin://') ? '${site.displayName}.kin' : site.kinUrl,
+                          site.kinUrl.startsWith('${AppConstants.tld}://') ? '${site.displayName}${AppConstants.dotTld}' : site.kinUrl,
                           style: GoogleFonts.firaCode(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -442,7 +443,7 @@ class _RecentSiteCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        if (site.kinUrl.startsWith('kin://'))
+                        if (site.kinUrl.startsWith('${AppConstants.tld}://'))
                           const Row(
                             children: [
                               Icon(Icons.verified_rounded, size: 14, color: AppTheme.success),

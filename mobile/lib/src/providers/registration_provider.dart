@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'dart:async';
 import 'dart:math' as dart_math;
 import 'dart:typed_data';
@@ -8,6 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:kinetic/services/hardware_attestation_service.dart';
 import 'package:kinetic/src/services/nostr_service.dart';
 import 'package:kinetic/src/rust/api/delegation.dart';
+import 'package:kinetic/src/utils/error_handler.dart';
 import 'package:http/http.dart' as http;
 
 enum RegistrationErrorKind {
@@ -129,7 +131,7 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
           desktopUrl: desktopUrl,
         );
 
-        if (desktopUrl.startsWith('npub')) {
+        if (desktopUrl.startsWith('npub') || (desktopUrl.length == 64 && !desktopUrl.contains(':'))) {
           _waitForNostrDm(desktopUrl, name, privateKeyBytes, jobResponse);
         } else {
           _startPolling(desktopUrl, name, privateKeyBytes, jobResponse);
@@ -160,7 +162,10 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
   }
 
   Future<void> _waitForNostrDm(String desktopUrl, String name, List<int> privateKeyBytes, VdfJobResponse vdfJobResponse) async {
-    final String desktopHex = NostrService.decodeNpub(desktopUrl);
+    String desktopHex = desktopUrl;
+    if (desktopUrl.startsWith('npub1')) {
+      desktopHex = NostrService.decodeNpub(desktopUrl);
+    }
     final encryptedReply = await NostrService.listenForDm(desktopUrl, desktopHex);
     
     if (encryptedReply != null) {
@@ -182,29 +187,25 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
 
 
   Future<void> startRegistration(String name) async {
-    final desktopUrl = state.desktopUrl ?? 'http://10.0.2.2:8080';
+    final desktopUrl = state.desktopUrl ?? 'auto';
     
     // 1. Hardware Attestation
     state = state.copyWith(status: RegistrationStatus.attesting);
     final trustTier = await HardwareAttestationService.verifyDevice();
     
-    // Define what constitutes a "local" node vs a "public" node
-    final isLocalNode = desktopUrl.contains('localhost') || 
-                        desktopUrl.contains('127.0.0.1') || 
-                        desktopUrl.contains('10.0.2.2') || 
-                        desktopUrl.startsWith('http://192.168.') ||
-                        desktopUrl.startsWith('http://10.');
+    // Only block rooted devices from using the 'auto' matchmaking pool
+    final isAutoMatchmaking = desktopUrl == 'auto';
 
     if (trustTier == TrustTier.untrusted) {
-      if (!isLocalNode) {
+      if (isAutoMatchmaking) {
         state = state.copyWith(
           status: RegistrationStatus.error, 
           failedStep: RegistrationStatus.attesting,
-          error: const RegistrationError(RegistrationErrorKind.attestation, "Rooted devices cannot use public nodes. Please run your own local Desktop Node."),
+          error: const RegistrationError(RegistrationErrorKind.attestation, "Rooted devices cannot use public matchmaking. Please specify a manual Node Address or Npub."),
         );
         return;
       }
-      // If it is a local node, we allow the rooted device to proceed!
+      // If they manually specified an npub or local HTTP node, allow them to proceed!
     }
 
     // 1.5 Check name limit (Max 3 for all trusted devices)
@@ -223,11 +224,28 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       // Generate a secure random Ed25519 private key scalar for this specific domain
       final random = dart_math.Random.secure();
       final privateKeyBytes = List.generate(32, (_) => random.nextInt(256));
-      if (desktopUrl.startsWith('npub')) {
+      
+      String targetNode = desktopUrl;
+      
+      if (desktopUrl == 'auto') {
+        state = state.copyWith(status: RegistrationStatus.requestingVdf);
+        final discoveredHex = await NostrService.discoverPublicMiner();
+        if (discoveredHex == null) {
+          state = state.copyWith(
+            status: RegistrationStatus.error,
+            failedStep: RegistrationStatus.requestingVdf,
+            error: const RegistrationError(RegistrationErrorKind.request, "Could not discover any public miners on the network."),
+          );
+          return;
+        }
+        targetNode = discoveredHex;
+      }
+
+      if (targetNode.startsWith('npub') || (targetNode.length == 64 && !targetNode.contains(':'))) {
         // --- NOSTR FLOW ---
         state = state.copyWith(status: RegistrationStatus.requestingVdf);
         final result = await prepareVdfRequestNostr(
-          desktopNpub: desktopUrl,
+          desktopNpub: targetNode,
           name: name,
           privateKeyBytes: privateKeyBytes,
           difficultyBits: 20, 
@@ -245,9 +263,9 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
 
         const secureStorage = FlutterSecureStorage();
         await secureStorage.write(key: 'private_key_$name', value: privateKeyBytes.join(','));
-        await _savePendingVdf(desktopUrl, name, vdfJobResponse);
+        await _savePendingVdf(targetNode, name, vdfJobResponse);
         
-        _waitForNostrDm(desktopUrl, name, privateKeyBytes, vdfJobResponse);
+        _waitForNostrDm(targetNode, name, privateKeyBytes, vdfJobResponse);
       } else {
         // --- HTTP FLOW (Local Node) ---
         state = state.copyWith(status: RegistrationStatus.requestingVdf);
@@ -273,7 +291,7 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.requestingVdf,
-        error: RegistrationError(RegistrationErrorKind.request, e.toString().replaceFirst('Exception: ', '')),
+        error: RegistrationError(RegistrationErrorKind.request, parseKineticError(e)),
       );
     }
   }
@@ -334,7 +352,7 @@ class RegistrationNotifier extends Notifier<RegistrationState> {
       state = state.copyWith(
         status: RegistrationStatus.error,
         failedStep: RegistrationStatus.broadcasting,
-        error: RegistrationError(RegistrationErrorKind.network, e.toString().replaceFirst('Exception: ', '')),
+        error: RegistrationError(RegistrationErrorKind.network, parseKineticError(e)),
       );
     }
   }

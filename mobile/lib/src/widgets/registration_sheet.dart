@@ -72,7 +72,7 @@ class _RegistrationSheetState extends ConsumerState<RegistrationSheet> {
                 hintText: 'npub1... or http://10.0.2.2:8080',
                 labelStyle: const TextStyle(color: AppTheme.textHint),
                 enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.border.withOpacity(0.5)),
+                  borderSide: BorderSide(color: AppTheme.border.withValues(alpha: 0.5)),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 focusedBorder: OutlineInputBorder(

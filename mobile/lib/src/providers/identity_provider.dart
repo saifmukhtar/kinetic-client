@@ -1,8 +1,10 @@
 import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kinetic/src/services/nostr_service.dart';
 import 'package:kinetic/src/rust/api/resolver.dart';
 import 'package:kinetic/src/providers/daemon_provider.dart';
+import 'package:kinetic/src/utils/error_handler.dart';
 
 enum IdentityErrorKind { network, notFound, offline, unknown }
 
@@ -96,19 +98,17 @@ class IdentityNotifier extends Notifier<IdentityState> {
 
       state = state.copyWith(isResolving: false, data: decoded);
     } catch (e) {
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final cleanMsg = parseKineticError(e);
       IdentityErrorKind kind = IdentityErrorKind.unknown;
-      String cleanMsg = msg.split('\n').first; // Strip stacktrace
-      if (msg.contains('not found in the Kinetic network')) {
+      
+      if (cleanMsg.contains('not found')) {
         kind = IdentityErrorKind.notFound;
-        cleanMsg = "Name '${url}' was not found in the Kinetic network. It may be unregistered.";
-      } else if (msg.contains('offline') || msg.contains('timed out') || msg.contains('partitioned')) {
+      } else if (cleanMsg.contains('offline') || cleanMsg.contains('timed out') || cleanMsg.contains('partitioned')) {
         kind = IdentityErrorKind.offline;
-        cleanMsg = "You appear to be offline or the network is partitioned.";
-      } else if (msg.contains('DHT lookup failed')) {
+      } else if (cleanMsg.contains('DHT lookup failed')) {
         kind = IdentityErrorKind.network;
-        cleanMsg = "DHT lookup failed. Check your connection.";
       }
+      
       state = state.copyWith(isResolving: false, error: IdentityError(kind, cleanMsg));
     }
   }

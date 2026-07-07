@@ -34,10 +34,10 @@ class HomeScreen extends StatelessWidget {
               filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.surface.withOpacity(0.7),
+                  color: AppTheme.surface.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: AppTheme.border.withOpacity(0.5),
+                    color: AppTheme.border.withValues(alpha: 0.5),
                   ),
                 ),
                 child: BottomNavigationBar(

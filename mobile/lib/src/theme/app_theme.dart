@@ -58,7 +58,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface.withOpacity(0.6), // Glassy feel
+        fillColor: surface.withValues(alpha: 0.6), // Glassy feel
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: border),
@@ -85,7 +85,7 @@ class AppTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: surface.withOpacity(0.7),
+        color: surface.withValues(alpha: 0.7),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),

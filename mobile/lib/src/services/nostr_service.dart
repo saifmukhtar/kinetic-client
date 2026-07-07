@@ -113,7 +113,6 @@ class NostrService {
 
       return await completer.future;
     } catch (e) {
-      print('Nostr fetch error: $e');
       return null;
     }
   }
@@ -138,10 +137,88 @@ class NostrService {
         Future.delayed(const Duration(milliseconds: 500), () => channel.sink.close());
         published = true;
       } catch (e) {
-        print('Relay publish error: $e');
+        // Ignored
       }
     }
     return published;
+  }
+
+  static Future<String?> discoverPublicMiner() async {
+    final completer = Completer<String?>();
+    List<WebSocketChannel> channels = [];
+    int failures = 0;
+
+    final req = jsonEncode([
+      'REQ',
+      'kinetic_discover_${DateTime.now().millisecondsSinceEpoch}',
+      {
+        'kinds': [1],
+        '#t': ['kinetic-miner'],
+        'limit': 5,
+      }
+    ]);
+
+    void closeAll() {
+      for (var c in channels) {
+        try { c.sink.close(); } catch (_) {}
+      }
+    }
+
+    for (final relay in _relays) {
+      try {
+        final channel = WebSocketChannel.connect(Uri.parse(relay));
+        channels.add(channel);
+        channel.sink.add(req);
+
+        channel.stream.listen((message) {
+          try {
+            final data = jsonDecode(message);
+            if (data is List && data.isNotEmpty) {
+              final type = data[0];
+              if (type == 'EVENT' && data.length > 2) {
+                final event = data[2];
+                if (event['kind'] == 1) {
+                  final pubkeyHex = event['pubkey'];
+                  if (!completer.isCompleted) {
+                    completer.complete(pubkeyHex);
+                    closeAll();
+                  }
+                }
+              } else if (type == 'EOSE') {
+                failures++;
+                if (failures >= _relays.length && !completer.isCompleted) {
+                  completer.complete(null);
+                  closeAll();
+                }
+              }
+            }
+          } catch (_) {}
+        }, onError: (_) {
+          failures++;
+          if (failures >= _relays.length && !completer.isCompleted) {
+            completer.complete(null);
+            closeAll();
+          }
+        }, onDone: () {
+          failures++;
+          if (failures >= _relays.length && !completer.isCompleted) {
+            completer.complete(null);
+            closeAll();
+          }
+        });
+      } catch (_) {
+        failures++;
+      }
+    }
+
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!completer.isCompleted) {
+        completer.complete(null);
+        closeAll();
+      }
+    });
+
+    return await completer.future;
   }
 
   static Future<String?> listenForDm(

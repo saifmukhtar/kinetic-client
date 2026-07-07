@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kinetic/src/constants.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kinetic/src/providers/identity_provider.dart';
@@ -97,7 +98,7 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
             style: GoogleFonts.firaCode(fontSize: 16, color: AppTheme.textPrimary),
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textHint, size: 20),
-              hintText: 'example.kin',
+              hintText: 'example${AppConstants.dotTld}',
               hintStyle: GoogleFonts.firaCode(fontSize: 16, color: AppTheme.textHint),
             ),
           ),
@@ -143,9 +144,9 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
                       return Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppTheme.error.withOpacity(0.08),
+                          color: AppTheme.error.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.error.withOpacity(0.2)),
+                          border: Border.all(color: AppTheme.error.withValues(alpha: 0.2)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +180,7 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
   Widget _buildResultCard(BuildContext context, Map<String, dynamic> data, String query) {
     final isDirectNpub = query.startsWith('npub1');
     final name = data['name'] as String? ?? query;
-    final formattedName = isDirectNpub ? name : (name.endsWith('.kin') ? name : '$name.kin');
+    final formattedName = isDirectNpub ? name : (name.endsWith(AppConstants.dotTld) ? name : '$name${AppConstants.dotTld}');
     final status = data['status'] as String? ?? 'Unknown';
     final isActive = status == 'Verified';
 
@@ -189,12 +190,12 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: AppTheme.surface.withOpacity(0.7),
+        color: AppTheme.surface.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 8),
           )
@@ -206,7 +207,7 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: isActive ? AppTheme.successLight.withOpacity(0.2) : AppTheme.surfaceVariant.withOpacity(0.2),
+              color: isActive ? AppTheme.successLight.withValues(alpha: 0.2) : AppTheme.surfaceVariant.withValues(alpha: 0.2),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             ),
             child: Row(
@@ -258,7 +259,7 @@ class _IdentityLookupSheetState extends ConsumerState<IdentityLookupSheet> {
               padding: const EdgeInsets.all(48.0),
               child: Column(
                 children: [
-                  Icon(Icons.person_off_rounded, size: 48, color: AppTheme.textHint.withOpacity(0.5)),
+                  Icon(Icons.person_off_rounded, size: 48, color: AppTheme.textHint.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
                   const Text('No Nostr Identity Linked', style: TextStyle(color: AppTheme.textHint)),
                 ],
@@ -284,7 +285,6 @@ class _ProfileHeader extends StatelessWidget {
     final twitter = (profile['twitter'] is String ? profile['twitter'] : null) ?? (profile['x'] is String ? profile['x'] : null);
     final lud16 = profile['lud16'] is String ? profile['lud16'] as String : null;
     final picture = profile['picture'] is String ? profile['picture'] as String : null;
-    final banner = profile['banner'] is String ? profile['banner'] as String : null;
     final about = profile['about'] is String ? profile['about'] as String : null;
 
     return Column(
@@ -296,10 +296,10 @@ class _ProfileHeader extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.primary.withOpacity(0.2), width: 4),
+                  border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2), width: 4),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primary.withOpacity(0.1),
+                      color: AppTheme.primary.withValues(alpha: 0.1),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     )
@@ -332,7 +332,7 @@ class _ProfileHeader extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.successLight.withOpacity(0.2),
+                      color: AppTheme.successLight.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -391,9 +391,9 @@ class _SocialChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceVariant.withOpacity(0.5),
+        color: AppTheme.surfaceVariant.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

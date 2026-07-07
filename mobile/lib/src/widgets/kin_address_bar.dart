@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kinetic/src/constants.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kinetic/src/theme/app_theme.dart';
 
@@ -44,21 +45,21 @@ class _KinAddressBarState extends State<KinAddressBar> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _isFocused ? AppTheme.primary : AppTheme.border.withOpacity(0.5),
+          color: _isFocused ? AppTheme.primary : AppTheme.border.withValues(alpha: 0.5),
           width: _isFocused ? 2 : 1,
         ),
-        color: AppTheme.surface.withOpacity(0.6),
+        color: AppTheme.surface.withValues(alpha: 0.6),
         boxShadow: _isFocused
             ? [
                 BoxShadow(
-                  color: AppTheme.primary.withOpacity(0.12),
+                  color: AppTheme.primary.withValues(alpha: 0.12),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 )
               ]
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
+                  color: Colors.black.withValues(alpha: 0.02),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -87,7 +88,7 @@ class _KinAddressBarState extends State<KinAddressBar> {
                 fontWeight: FontWeight.w500,
               ),
               decoration: const InputDecoration(
-                hintText: 'example.kin or google.com',
+                hintText: 'example${AppConstants.dotTld} or google.com',
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,

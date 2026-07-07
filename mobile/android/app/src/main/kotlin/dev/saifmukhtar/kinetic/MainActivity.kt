@@ -46,10 +46,6 @@ class MainActivity : FlutterActivity() {
         val hasRootFiles = rootBinaries.any { File(it).exists() }
         if (hasRootFiles) return "INTEGRITY_UNAVAILABLE"
 
-        // 2. Check test-keys build tag — real retail devices use "release-keys".
-        val buildTags = Build.TAGS ?: ""
-        if (buildTags.contains("test-keys")) return "INTEGRITY_UNAVAILABLE"
-
         // 3. Check if the build is a known emulator.
         val isEmulator = Build.FINGERPRINT.startsWith("generic")
             || Build.FINGERPRINT.startsWith("unknown")
@@ -58,8 +54,8 @@ class MainActivity : FlutterActivity() {
             || Build.MANUFACTURER.contains("Genymotion")
             || Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic")
             || Build.PRODUCT == "google_sdk"
-        // Emulators get BASIC so developers can still use local nodes.
-        if (isEmulator) return "MEETS_BASIC_INTEGRITY"
+        // Emulators are restricted to prevent farming via VMs.
+        if (isEmulator) return "INTEGRITY_UNAVAILABLE"
 
         // 4. All checks passed — this is likely a stock, unrooted retail device.
         return "MEETS_STRONG_INTEGRITY"

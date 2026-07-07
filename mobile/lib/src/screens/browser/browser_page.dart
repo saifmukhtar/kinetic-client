@@ -1,9 +1,11 @@
 import 'dart:ui';
+import 'package:kinetic/src/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:kinetic/src/models/resolved_site.dart';
 import 'package:kinetic/src/rust/api/resolver.dart';
+import 'package:kinetic/src/rust/api/daemon.dart';
 import 'package:kinetic/src/theme/app_theme.dart';
 import 'package:kinetic/src/widgets/trust_sheet.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -33,7 +35,6 @@ class _BrowserPageState extends State<BrowserPage>
   late AnimationController _sphereController;
   late Animation<double> _sphereExpand;
   late Animation<double> _sphereFade;
-  late Animation<Alignment> _sphereAlign;
 
   @override
   void initState() {
@@ -52,13 +53,6 @@ class _BrowserPageState extends State<BrowserPage>
       parent: _sphereController,
       curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
     );
-    _sphereAlign = Tween<Alignment>(
-      begin: Alignment.centerRight,
-      end: Alignment.center,
-    ).animate(CurvedAnimation(
-      parent: _sphereController,
-      curve: Curves.easeOutCubic,
-    ));
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -111,8 +105,25 @@ class _BrowserPageState extends State<BrowserPage>
             }
           }
         },
-      )
-      ..loadRequest(Uri.parse(widget.site.targetUrl));
+      );
+
+    _initWebView();
+  }
+
+  Future<void> _initWebView() async {
+    final cookieManager = WebViewCookieManager();
+    final token = await getBridgeToken();
+    
+    await cookieManager.setCookie(
+      WebViewCookie(
+        name: 'bridge_token',
+        value: token,
+        domain: '127.0.0.1',
+        path: '/',
+      ),
+    );
+    
+    await _controller.loadRequest(Uri.parse(widget.site.targetUrl));
   }
 
   @override
@@ -219,9 +230,9 @@ class _BrowserPageState extends State<BrowserPage>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceVariant.withOpacity(0.4),
+        color: AppTheme.surfaceVariant.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -268,21 +279,21 @@ class _BrowserPageState extends State<BrowserPage>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppTheme.surface.withOpacity(0.8),
+                        color: AppTheme.surface.withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            widget.site.kinUrl.startsWith('kin://') ? Icons.lock_rounded : Icons.public_rounded,
-                            color: widget.site.kinUrl.startsWith('kin://') ? AppTheme.success : AppTheme.textSecondary,
+                            widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? Icons.lock_rounded : Icons.public_rounded,
+                            color: widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? AppTheme.success : AppTheme.textSecondary,
                             size: 13,
                           ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              widget.site.kinUrl.startsWith('kin://') ? '${widget.site.displayName}.kin' : widget.site.kinUrl,
+                              widget.site.kinUrl.startsWith('${AppConstants.tld}://') ? '${widget.site.displayName}${AppConstants.dotTld}' : widget.site.kinUrl,
                               style: GoogleFonts.firaCode(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -303,7 +314,7 @@ class _BrowserPageState extends State<BrowserPage>
                       ? SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary.withOpacity(0.7)),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary.withValues(alpha: 0.7)),
                         )
                       : const Icon(Icons.refresh_rounded, size: 20, color: AppTheme.textSecondary),
                   onPressed: _isLoading ? null : () => _controller.reload(),
@@ -338,7 +349,7 @@ class _BrowserPageState extends State<BrowserPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withOpacity(0.45),
+              color: AppTheme.primary.withValues(alpha: 0.45),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -369,13 +380,13 @@ class _BrowserPageState extends State<BrowserPage>
               width: MediaQuery.of(context).size.width - 32,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.surface.withOpacity(0.92),
+                color: AppTheme.surface.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                    color: AppTheme.primary.withOpacity(0.3), width: 1.5),
+                    color: AppTheme.primary.withValues(alpha: 0.3), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primary.withOpacity(0.15),
+                    color: AppTheme.primary.withValues(alpha: 0.15),
                     blurRadius: 32,
                     offset: const Offset(0, 8),
                   ),
@@ -390,7 +401,7 @@ class _BrowserPageState extends State<BrowserPage>
                     height: 3,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.border.withOpacity(0.5),
+                      color: AppTheme.border.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -465,7 +476,7 @@ class _BrowserPageState extends State<BrowserPage>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: isActive ? AppTheme.primary.withOpacity(0.12) : null,
+            color: isActive ? AppTheme.primary.withValues(alpha: 0.12) : null,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(

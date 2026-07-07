@@ -1,3 +1,4 @@
+import 'package:kinetic/src/constants.dart';
 /// Data model for a successfully resolved .kin site.
 class ResolvedSite {
   final String kinUrl;
@@ -10,11 +11,10 @@ class ResolvedSite {
     required this.trustStateJson,
   });
 
-  /// Returns the display name without `kin://` prefix.
   String get displayName {
     return kinUrl
-        .replaceFirst('kin://', '')
-        .replaceAll(RegExp(r'\.kin$'), '')
+        .replaceFirst('${AppConstants.tld}://', '')
+        .replaceAll(RegExp('\\${AppConstants.dotTld}\$'), '')
         .trim();
   }
 }

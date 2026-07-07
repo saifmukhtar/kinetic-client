@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kinetic/src/constants.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kinetic/src/theme/app_theme.dart';
@@ -157,7 +158,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
                     icon: Icons.add_rounded,
                     label: 'Register\nDomain',
                     onTap: _showRegisterSheet,
-                    color: AppTheme.primary.withOpacity(0.2),
+                    color: AppTheme.primary.withValues(alpha: 0.2),
                     iconColor: AppTheme.primary,
                   ),
                 ),
@@ -183,12 +184,12 @@ class _ManageKinTabState extends State<ManageKinTab> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppTheme.surface.withOpacity(0.5),
+                  color: AppTheme.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+                  border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     )
@@ -196,7 +197,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.layers_clear_rounded, size: 48, color: AppTheme.textHint.withOpacity(0.5)),
+                    Icon(Icons.layers_clear_rounded, size: 48, color: AppTheme.textHint.withValues(alpha: 0.5)),
                     const SizedBox(height: 16),
                     const Text(
                       'No domains owned yet',
@@ -218,14 +219,14 @@ class _ManageKinTabState extends State<ManageKinTab> {
                     decoration: BoxDecoration(
                       color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+                      border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppTheme.primary.withOpacity(0.1),
+                            color: AppTheme.primary.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.language_rounded, color: AppTheme.primary, size: 24),
@@ -233,7 +234,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            '$domain.kin',
+                            '$domain${AppConstants.dotTld}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.firaCode(
@@ -255,10 +256,10 @@ class _ManageKinTabState extends State<ManageKinTab> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _isConnected ? AppTheme.success.withOpacity(0.1) : AppTheme.error.withOpacity(0.1),
+                color: _isConnected ? AppTheme.success.withValues(alpha: 0.1) : AppTheme.error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: _isConnected ? AppTheme.success.withOpacity(0.3) : AppTheme.error.withOpacity(0.3),
+                  color: _isConnected ? AppTheme.success.withValues(alpha: 0.3) : AppTheme.error.withValues(alpha: 0.3),
                 ),
               ),
               child: Row(
@@ -266,7 +267,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _isConnected ? AppTheme.success.withOpacity(0.2) : AppTheme.error.withOpacity(0.2),
+                      color: _isConnected ? AppTheme.success.withValues(alpha: 0.2) : AppTheme.error.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -293,7 +294,7 @@ class _ManageKinTabState extends State<ManageKinTab> {
                           _isConnected ? 'Connected to P2P nodes' : 'No internet connection',
                           style: TextStyle(
                             fontSize: 14,
-                            color: (_isConnected ? AppTheme.success : AppTheme.error).withOpacity(0.8),
+                            color: (_isConnected ? AppTheme.success : AppTheme.error).withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -333,7 +334,7 @@ class _ActionButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.border.withValues(alpha: 0.5)),
         ),
         child: Column(
           children: [
