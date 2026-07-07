@@ -44,3 +44,31 @@ pub fn seed_domains() -> Vec<String> {
 pub fn all_bootstrap_nodes() -> (Vec<String>, Vec<String>) {
     (production_bootstrap_nodes(), seed_domains())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_production_bootstrap_nodes() {
+        let nodes = production_bootstrap_nodes();
+        assert!(!nodes.is_empty(), "Bootstrap nodes should not be empty");
+        for node in nodes {
+            assert!(node.contains("/p2p/"), "Node should contain a peer ID");
+            assert!(node.contains("/ip4/"), "Node should contain an IPv4 address");
+        }
+    }
+
+    #[test]
+    fn test_seed_domains() {
+        let domains = seed_domains();
+        assert!(domains.is_empty(), "Seed domains should be empty for mobile to prevent DNS spoofing");
+    }
+
+    #[test]
+    fn test_all_bootstrap_nodes() {
+        let (nodes, domains) = all_bootstrap_nodes();
+        assert_eq!(nodes.len(), production_bootstrap_nodes().len());
+        assert_eq!(domains.len(), seed_domains().len());
+    }
+}

@@ -1,8 +1,8 @@
 use kinetic_network::{NetworkClient, NetworkEventLoop, NetworkConfig, NetworkMode};
 use kinetic_storage::SledStorage;
+use crate::api::error::DaemonError;
 use std::sync::Arc;
 use tokio::sync::{OnceCell, Mutex, watch};
-use anyhow::Result;
 use std::collections::HashMap;
 use axum::{
     extract::{Request, State},
@@ -41,26 +41,71 @@ pub fn get_bridge_token() -> String {
     }).clone()
 }
 
+/// Natively checks the Android file system for known root binaries.
+/// This runs directly in Rust, bypassing the Flutter layer for higher security.
+pub fn check_device_rooted() -> bool {
+    #[cfg(not(target_os = "android"))]
+    {
+        return false;
+    }
+
+    #[cfg(target_os = "android")]
+    {
+        let root_paths = [
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su",
+            "/su/bin/su",
+            "/system/xbin/busybox",
+        ];
+        for path in root_paths.iter() {
+            if std::path::Path::new(path).exists() {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 /// Initializes the Kinetic Light Client. Safe to call multiple times —
 /// subsequent calls are no-ops. Uses production bootstrap nodes by default.
-pub async fn init_light_client(app_dir: String, identity_bytes: Option<Vec<u8>>) -> Result<Option<Vec<u8>>> {
+pub async fn init_light_client(
+    app_dir: String, 
+    identity_bytes: Option<Vec<u8>>,
+    target_desktop_npub: Option<String>,
+) -> Result<Option<Vec<u8>>, DaemonError> {
     if NETWORK_CLIENT.initialized() {
         return Ok(None);
     }
 
     let base_tmp = std::path::PathBuf::from(&app_dir);
     if base_tmp.as_os_str().is_empty() {
-        return Err(anyhow::anyhow!("Invalid app directory provided"));
+        return Err(DaemonError::InvalidAppDirectory);
     }
 
     let storage_dir = base_tmp.join("kinetic_light_storage");
-    std::fs::create_dir_all(&storage_dir)?;
-    let storage = Arc::new(SledStorage::new(&storage_dir)?);
+    std::fs::create_dir_all(&storage_dir).map_err(|e| DaemonError::Internal(e.to_string()))?;
+    let storage = Arc::new(SledStorage::new(&storage_dir).map_err(|e| DaemonError::Internal(e.to_string()))?);
 
     let current_round = fetch_latest_drand().await;
 
     let mut new_identity_bytes = None;
-    let local_key = if let Some(bytes) = identity_bytes {
+    
+    let is_rooted = check_device_rooted();
+    let local_key = if is_rooted {
+        tracing::info!("Rooted device detected natively by Rust. Starting in Tethered/Read-Only Mode with transient key. Skipping PoW.");
+        if let Some(npub) = target_desktop_npub {
+            tracing::info!("Tethered to Desktop Node: {}", npub);
+        }
+        // Generate a zero-privilege transient key that won't be saved
+        libp2p::identity::Keypair::generate_ed25519()
+    } else if let Some(bytes) = identity_bytes {
         if let Ok(key) = libp2p::identity::Keypair::from_protobuf_encoding(&bytes) {
             let peer_id = key.public().to_peer_id();
             if kinetic_network::pow::is_valid_sybil_pow(&peer_id, current_round, kinetic_network::pow::DEFAULT_DIFFICULTY_BITS) {
@@ -103,13 +148,16 @@ pub async fn init_light_client(app_dir: String, identity_bytes: Option<Vec<u8>>)
         local_key,
         storage,
         drand_pulse_rx,
-        None, // Light clients don't accept incoming proxy requests
-    )?;
+        None, // No OTA update channel for light clients
+        None,
+    ).map_err(|e| DaemonError::Internal(e.to_string()))?;
 
     let client = Arc::new(network_client);
-    NETWORK_CLIENT
-        .set(client.clone())
-        .map_err(|_| anyhow::anyhow!("Network client already initialized"))?;
+    if NETWORK_CLIENT.set(client.clone()).is_err() {
+        // Was initialized in parallel by another thread.
+        // We can just safely return.
+        return Ok(None);
+    }
     let _ = TRANSPORT_BRIDGES.set(Arc::new(Mutex::new(HashMap::new())));
     let _ = BRIDGE_TOKEN.set(libp2p::identity::Keypair::generate_ed25519().public().to_peer_id().to_string());
 
@@ -142,7 +190,7 @@ pub async fn init_light_client(app_dir: String, identity_bytes: Option<Vec<u8>>)
 /// Returns the local HTTP port for a given peer, spawning a transport bridge
 /// if one does not already exist. The Flutter WebView loads the site via
 /// `http://127.0.0.1:<port>` which this bridge proxies over libp2p.
-pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId, fqdn: &str) -> Result<u16> {
+pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId, fqdn: &str) -> Result<u16, anyhow::Error> {
     let peer_str = peer_id.to_string();
 
     let map_arc = TRANSPORT_BRIDGES
@@ -211,8 +259,12 @@ pub(crate) async fn get_or_spawn_transport_bridge(peer_id: libp2p::PeerId, fqdn:
 
 /// Backward-compatible alias — `frb_generated.rs` was code-generated calling this name.
 /// It delegates to `init_light_client()` which is the canonical function.
-pub async fn init_daemon(app_dir: String, identity_bytes: Option<Vec<u8>>) -> anyhow::Result<Option<Vec<u8>>> {
-    init_light_client(app_dir, identity_bytes).await
+pub async fn init_daemon(
+    app_dir: String, 
+    identity_bytes: Option<Vec<u8>>,
+    target_desktop_npub: Option<String>,
+) -> Result<Option<Vec<u8>>, DaemonError> {
+    init_light_client(app_dir, identity_bytes, target_desktop_npub).await
 }
 
 /// Proxies an incoming HTTP request from the WebView to the target peer
@@ -328,7 +380,7 @@ async fn handle_bridge_request(
 }
 
 /// Expose manual reconnect for Flutter AppLifecycleState.resumed
-pub async fn reconnect_network() -> Result<()> {
+pub async fn reconnect_network() -> Result<(), DaemonError> {
     if let Some(client) = NETWORK_CLIENT.get() {
         tracing::info!("Flutter requested network reconnect/bootstrap");
         let _ = client.rebootstrap_network().await;
@@ -353,6 +405,35 @@ struct DrandResponse {
     round: u64,
 }
 
+async fn fetch_ntp_time() -> Option<u64> {
+    use tokio::net::UdpSocket;
+    use tokio::time::timeout;
+    use std::time::Duration;
+
+    let socket = match UdpSocket::bind("0.0.0.0:0").await {
+        Ok(s) => s,
+        Err(_) => return None,
+    };
+    
+    let mut buf = [0u8; 48];
+    buf[0] = 0x1b;
+
+    if timeout(Duration::from_secs(2), socket.send_to(&buf, "pool.ntp.org:123")).await.is_err() {
+        return None;
+    }
+
+    let mut recv_buf = [0u8; 48];
+    if let Ok(Ok((size, _))) = timeout(Duration::from_secs(2), socket.recv_from(&mut recv_buf)).await {
+        if size == 48 {
+            let secs = u32::from_be_bytes(recv_buf[40..44].try_into().unwrap()) as u64;
+            if secs > 2208988800 {
+                return Some(secs - 2208988800);
+            }
+        }
+    }
+    None
+}
+
 pub async fn fetch_latest_drand() -> u64 {
     let drand_urls = [
         "https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest",
@@ -361,20 +442,74 @@ pub async fn fetch_latest_drand() -> u64 {
         "https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest"
     ];
     
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .unwrap_or_default();
+        
     for url in drand_urls.iter() {
-        if let Ok(resp) = reqwest::get(*url).await {
+        if let Ok(resp) = client.get(*url).send().await {
             if let Ok(json) = resp.json::<DrandResponse>().await {
                 return json.round;
             }
         }
     }
     
-    // Offline fallback mathematically estimated from quicknet genesis
     let genesis_time = 1692803367u64;
     let round_period = 3u64;
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+    
+    let now = match fetch_ntp_time().await {
+        Some(t) => t,
+        None => std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs(),
+    };
+    
     if now > genesis_time {
         return (now - genesis_time) / round_period;
     }
     0
 }
+
+#[cfg(test)]
+mod daemon_tests {
+    use super::*;
+
+    #[test]
+    fn test_check_device_rooted() {
+        // Since we are running on Linux desktop normally (or CI), this should return false.
+        // It should only return true if we artificially create one of the root paths.
+        let is_rooted = check_device_rooted();
+        assert!(!is_rooted, "Desktop/CI should not be detected as rooted");
+    }
+
+    #[test]
+    fn test_get_bridge_token_generation() {
+        let token1 = get_bridge_token();
+        let token2 = get_bridge_token();
+        assert!(!token1.is_empty());
+        assert_eq!(token1, token2, "Token should be stable across calls");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_latest_drand() {
+        let round = fetch_latest_drand().await;
+        assert!(round > 0, "Drand round should be greater than zero");
+    }
+
+    #[tokio::test]
+    async fn test_init_light_client_no_args() {
+        // Try init without identity and npub
+        let result = init_light_client("/tmp/kinetic_test_1".to_string(), None, None).await;
+        assert!(result.is_ok());
+        let generated_identity = result.unwrap();
+        assert!(generated_identity.is_some(), "Should generate a new identity");
+    }
+
+    #[tokio::test]
+    async fn test_init_light_client_idempotent() {
+        // Init again, should return Ok(None)
+        let result = init_light_client("/tmp/kinetic_test_2".to_string(), None, None).await;
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none(), "Second init should be a no-op");
+    }
+}
+
