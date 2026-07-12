@@ -23,7 +23,7 @@ flowchart TD
     %% CLIENT LAYER (kinetic-client)
     %% ----------------------------------------------------
     subgraph Clients["1. Client Interfaces (User Entry Points)"]
-        direction TB
+        direction LR
         
         subgraph ExtClient["Browser Extension"]
             ExtReq["Browser Request (saif.kin)"]
@@ -42,7 +42,7 @@ flowchart TD
         subgraph DeskClient["Desktop Client (Tauri)"]
             DeskUI["React Dashboard"]
             SplitDNS["OS Split-DNS\n(systemd-resolved/NRPT)"]
-            DeskUI -->|Fetch API (port 16002)| LocalDaemon
+            DeskUI -->|"Fetch API (port 16002)"| API
             SplitDNS -->|Intercepts .kin port 53| LocalDNS
         end
     end
@@ -50,7 +50,7 @@ flowchart TD
     %% ----------------------------------------------------
     %% DAEMON & PROXY LAYER (kinetic-daemon, kinetic-dns)
     %% ----------------------------------------------------
-    subgraph LocalDaemon["2. Local Daemon & Interception Layer"]
+    subgraph LocalDaemonLayer["2. Local Daemon & Interception Layer"]
         direction TB
         LocalDNS["Kinetic DNS Server\n(kinetic-dns-server.rs)"]
         LocalProxy["P2P Web Proxy\n(kinetic-daemon/proxy.rs)"]
@@ -94,7 +94,7 @@ flowchart TD
     %% STORAGE LAYER (kinetic-storage)
     %% ----------------------------------------------------
     subgraph StoreLayer["5. Sled Storage Engine"]
-        direction TB
+        direction LR
         SledDB[("Sled DB\n(kinetic-storage)")]
         kad_records["kad_record:hex"]
         mempool_backup["kinetic_mempool_persistence"]
@@ -116,42 +116,42 @@ flowchart TD
     end
 
     %% ----------------------------------------------------
-    %% MASSIVE INTERCONNECTIONS
+    %% STRUCTURAL PIPELINES
     %% ----------------------------------------------------
     
     %% Drand Sync
-    Drand -.->|Broadcasts Clockless Pulse| XORTieBreaker
-    Drand -.->|Validates Age| SybilVal
+    Drand -.->|Broadcast Pulse| XORTieBreaker
+    Drand -.->|Validate Age| SybilVal
 
-    %% Client to Network Flow
-    WASM ==>|WebSockets/WebRTC| DHT
+    %% Client Entry to Backbone P2P Network
+    WASM ==>|WebSockets / WebRTC| DHT
     DartFFI ==>|Embedded Rust Node| DHT
     API ==>|Redundant Resolution| DHT
 
-    %% Proxy Flow (Client -> Daemon -> DHT -> Host)
-    LocalProxy ==>|Look up HostRoutingRecord| DHT
+    %% End-to-End Proxy Resolution
+    LocalProxy ==>|Lookup HostRoutingRecord| DHT
     LocalProxy ==>|Send ProxyRequest| P2PTunnel
     P2PTunnel ==>|Deliver Request| HostDaemon
     HostDaemon ==>|Return ProxyResponse| P2PTunnel
     P2PTunnel ==>|Deliver Response| LocalProxy
 
-    %% VDF Outsourcing Flow (Mobile -> Nostr -> Daemon)
-    MobUI -.->|1. Encrypt NIP-04 VdfJobRequest| Nostr
-    Nostr -.->|2. Relay to Trusted Node| NostrListener
-    NostrListener -->|3. Push Valid Request| Mempool
-    VdfWorker -->|4. Store Proof| delegation_proof
-    delegation_proof -->|5. Poll for completion| NostrListener
-    NostrListener -.->|6. Reply with Proof| Nostr
-    Nostr -.->|7. Deliver Proof| MobUI
+    %% Asynchronous VDF Outsourcing Loop
+    MobUI -.->|"1. Encrypt Job Request"| Nostr
+    Nostr -.->|"2. Relay to Worker Node"| NostrListener
+    NostrListener -->|"3. Push to Queue"| Mempool
+    VdfWorker -->|"4. Commit Output"| delegation_proof
+    delegation_proof -->|"5. Poll Proof Complete"| NostrListener
+    NostrListener -.->|"6. Broadcast Result"| Nostr
+    Nostr -.->|"7. Consume Verified Proof"| MobUI
     
-    %% Name Registration Flow
-    MobUI ==>|8. Name Registration (Publish Reveal)| DHT
+    %% Name Verification Flow
+    MobUI ==>|"8. Publish Name Reveal"| DHT
 
-    %% Storage Integrations
-    DHT -->|Persist kad_records| SledDB
-    Mempool -->|Dump backup| mempool_backup
+    %% Storage Commitments
+    DHT -->|Persist Network Zones| SledDB
+    Mempool -->|Write Crash Recovery Logs| mempool_backup
 
-    %% Applying Classes
+    %% Apply Style Layout Clustered Classes
     class ExtClient,MobClient,DeskClient client;
     class LocalDNS,LocalProxy,API,NostrListener daemon;
     class Mempool,VdfWorker,ChiaVDF,KeyGen core;
